@@ -53,7 +53,12 @@ if %errorlevel% neq 0 (
     echo [WARNING] No se pudieron instalar las dependencias. Verifique su conexión.
 )
 
-:: 4. Run the Flask App
+:: 4. Show QR Code
+echo.
+echo Generando codigo QR para conexion movil...
+py -3-32 show_qr.py
+
+:: 5. Run the Flask App
 echo.
 echo Iniciando Servidor Web de Inventario...
 echo --- Accede en: http://localhost:5000

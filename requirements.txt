@@ -1,2 +1,3 @@
 fdb
 flask
+qrcode
