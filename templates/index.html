@@ -1,0 +1,597 @@
+<!DOCTYPE html>
+<html lang="es">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Inventario Pro - Móvil</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- Barcode Scanner Library -->
+    <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
+    <style>
+        :root {
+            --primary: #8b5cf6;
+            --primary-glow: rgba(139, 92, 246, 0.4);
+            --bg: #030712;
+            --surface: rgba(31, 41, 55, 0.6);
+            --surface-accent: rgba(55, 65, 81, 0.8);
+            --text: #f3f4f6;
+            --text-dim: #9ca3af;
+            --success: #10b981;
+            --error: #ef4444;
+            --border: rgba(255, 255, 255, 0.08);
+            --radius-lg: 24px;
+            --radius-md: 16px;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Outfit', sans-serif;
+            -webkit-tap-highlight-color: transparent;
+        }
+
+        body {
+            background-color: var(--bg);
+            background-image:
+                radial-gradient(circle at 0% 0%, rgba(139, 92, 246, 0.15) 0%, transparent 40%),
+                radial-gradient(circle at 100% 100%, rgba(16, 185, 129, 0.1) 0%, transparent 40%);
+            color: var(--text);
+            min-height: 100vh;
+            padding-bottom: 80px;
+        }
+
+        header {
+            padding: 2rem 1.5rem 1rem;
+            text-align: center;
+        }
+
+        .logo-vibe {
+            font-size: 1.8rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #a78bfa, #34d399);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            margin-bottom: 0.5rem;
+        }
+
+        .sticky-controls {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            background: rgba(3, 7, 18, 0.8);
+            backdrop-filter: blur(16px);
+            padding: 1rem;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .search-pill {
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: 100px;
+            display: flex;
+            align-items: center;
+            padding: 0.5rem 1rem;
+            box-shadow: 0 4px 20px rgba(0, 0, 0, 0.3);
+            margin-bottom: 1rem;
+        }
+
+        .search-pill input {
+            background: transparent;
+            border: none;
+            color: white;
+            flex: 1;
+            padding: 0.5rem;
+            font-size: 1rem;
+        }
+
+        .search-pill input:focus {
+            outline: none;
+        }
+
+        .btn-scan {
+            background: rgba(139, 92, 246, 0.2);
+            border: 1px solid var(--primary);
+            color: var(--primary);
+            padding: 0.5rem;
+            border-radius: 100px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-left: 0.5rem;
+            transition: all 0.2s;
+        }
+
+        .btn-scan:active {
+            transform: scale(0.9);
+        }
+
+        .filter-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 0.8rem;
+        }
+
+        .filter-item select {
+            width: 100%;
+            background: var(--surface);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-md);
+            padding: 0.7rem;
+            color: white;
+            font-size: 0.85rem;
+            appearance: none;
+        }
+
+        .products-grid {
+            padding: 1.5rem;
+            display: grid;
+            gap: 1.2rem;
+        }
+
+        .product-card {
+            background: var(--surface);
+            backdrop-filter: blur(10px);
+            border: 1px solid var(--border);
+            border-radius: var(--radius-lg);
+            padding: 1.5rem;
+            position: relative;
+            overflow: hidden;
+            transition: transform 0.2s, box-shadow 0.2s;
+            display: flex;
+            flex-direction: column;
+            gap: 1rem;
+        }
+
+        .product-card:active {
+            transform: scale(0.98);
+            background: var(--surface-accent);
+        }
+
+        .card-glow {
+            position: absolute;
+            top: -20%;
+            right: -10%;
+            width: 100px;
+            height: 100px;
+            background: var(--primary);
+            filter: blur(50px);
+            opacity: 0.1;
+            pointer-events: none;
+        }
+
+        .card-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+
+        .tag-dept {
+            font-size: 0.7rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: var(--primary);
+            background: rgba(139, 92, 246, 0.15);
+            padding: 0.3rem 0.6rem;
+            border-radius: 6px;
+        }
+
+        .card-name {
+            font-size: 1.2rem;
+            font-weight: 700;
+            margin-top: 0.4rem;
+        }
+
+        .card-id {
+            color: var(--text-dim);
+            font-size: 0.8rem;
+            font-family: monospace;
+        }
+
+        .card-stats {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.2);
+            padding: 0.8rem 1rem;
+            border-radius: var(--radius-md);
+        }
+
+        .stat-group .label {
+            font-size: 0.7rem;
+            color: var(--text-dim);
+            text-transform: uppercase;
+        }
+
+        .stat-group .val {
+            font-size: 1.1rem;
+            font-weight: 700;
+        }
+
+        .val.price {
+            color: var(--success);
+        }
+
+        .val.stock {
+            color: var(--primary);
+        }
+
+        /* Modal Overlay for Bottom Sheets */
+        .modal-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.9);
+            backdrop-filter: blur(12px);
+            display: none;
+            align-items: flex-end;
+            z-index: 1000;
+            animation: fadeIn 0.3s;
+        }
+
+        /* Camera Scanner Styles */
+        .scanner-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: black;
+            display: none;
+            flex-direction: column;
+            z-index: 2000;
+        }
+
+        #reader {
+            width: 100%;
+            flex: 1;
+        }
+
+        .scanner-header {
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: rgba(0, 0, 0, 0.5);
+            color: white;
+            position: absolute;
+            top: 0;
+            width: 100%;
+            z-index: 10;
+        }
+
+        .modal {
+            background: #111827;
+            width: 100%;
+            border-radius: 32px 32px 0 0;
+            padding: 2.5rem 1.5rem;
+            animation: slideUp 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+            border-top: 1px solid var(--border);
+        }
+
+        .modal-title {
+            font-size: 1.5rem;
+            font-weight: 800;
+            margin-bottom: 2rem;
+            text-align: center;
+        }
+
+        .input-vibe {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            width: 100%;
+            border-radius: 18px;
+            padding: 1.2rem;
+            color: white;
+            font-size: 2rem;
+            font-weight: 800;
+            text-align: center;
+            margin-bottom: 2rem;
+        }
+
+        .btn-action {
+            width: 100%;
+            padding: 1.2rem;
+            border-radius: 18px;
+            font-size: 1.1rem;
+            font-weight: 700;
+            border: none;
+            cursor: pointer;
+            transition: all 0.2s;
+        }
+
+        .btn-save {
+            background: var(--primary);
+            color: white;
+            box-shadow: 0 8px 24px var(--primary-glow);
+        }
+
+        #toast {
+            position: fixed;
+            top: 2rem;
+            left: 50%;
+            transform: translateX(-50%);
+            padding: 1rem 1.5rem;
+            border-radius: 100px;
+            background: var(--surface);
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+            font-weight: 600;
+            font-size: 0.9rem;
+            border: 1px solid var(--border);
+            display: none;
+            z-index: 3000;
+        }
+
+        @keyframes spin {
+            to {
+                transform: translate(-50%, -50%) rotate(360deg);
+            }
+        }
+
+        @keyframes slideUp {
+            from {
+                transform: translateY(100%);
+            }
+
+            to {
+                transform: translateY(0);
+            }
+        }
+
+        @keyframes fadeIn {
+            from {
+                opacity: 0;
+            }
+
+            to {
+                opacity: 1;
+            }
+        }
+
+        .modal-pull {
+            width: 40px;
+            height: 4px;
+            background: var(--border);
+            border-radius: 10px;
+            margin: -1rem auto 1.5rem;
+        }
+    </style>
+</head>
+
+<body>
+
+    <header>
+        <div class="logo-vibe">Inventario Elite</div>
+        <p style="color: var(--text-dim); font-size: 0.9rem;">Control total en la palma de tu mano</p>
+    </header>
+
+    <div class="sticky-controls">
+        <div class="search-pill">
+            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
+                stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-dim)">
+                <circle cx="11" cy="11" r="8"></circle>
+                <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
+            </svg>
+            <input type="text" id="masterSearch" placeholder="Buscar por nombre o ID..." onkeyup="multiFilter()">
+            <button class="btn-scan" id="startScanner">
+                <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
+                    stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M3 7V5a2 2 0 0 1 2-2h2"></path>
+                    <path d="M17 3h2a2 2 0 0 1 2 2v2"></path>
+                    <path d="M21 17v2a2 2 0 0 1-2 2h-2"></path>
+                    <path d="M3 17v2a2 2 0 0 0 2 2h2"></path>
+                    <line x1="8" y1="12" x2="16" y2="12"></line>
+                </svg>
+            </button>
+        </div>
+        <div class="filter-grid">
+            <div class="filter-item">
+                <select id="filterDept" onchange="multiFilter()">
+                    <option value="">Todo el Local</option>
+                </select>
+            </div>
+            <div class="filter-item">
+                <select id="filterStock" onchange="multiFilter()">
+                    <option value="all">Stock: Todos</option>
+                    <option value="zero">Sin Stock</option>
+                    <option value="low">Stock Bajo</option>
+                </select>
+            </div>
+        </div>
+    </div>
+
+    <!-- Scanner Overlay -->
+    <div id="scannerOverlay" class="scanner-overlay">
+        <div class="scanner-header">
+            <span>Escaneando Código...</span>
+            <button onclick="stopScanning()"
+                style="background: var(--error); border:none; padding: 0.5rem 1rem; border-radius: 8px; color: white; font-weight: 700;">Cerrar</button>
+        </div>
+        <div id="reader"></div>
+    </div>
+
+    <div id="productsBody" class="products-grid"></div>
+
+    <!-- Bottom Sheet Modal -->
+    <div id="editModal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-pull"></div>
+            <div class="modal-title" id="modalProdName">Ajustar Stock</div>
+            <div style="text-align: center; margin-bottom: 2rem;">
+                <span id="modalProdId" style="font-family: monospace; color: var(--text-dim);">ID</span>
+            </div>
+            <input type="number" id="editStock" step="0.01" class="input-vibe">
+            <div style="display: flex; gap: 1rem;">
+                <button class="btn-action" onclick="closeModal()"
+                    style="background: rgba(255,255,255,0.05); color: white; flex: 1;">Cerrar</button>
+                <button class="btn-action btn-save" onclick="saveInventory()" style="flex: 2;">Guardar Cambios</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="toast"></div>
+
+    <script>
+        let allProducts = [];
+        let currentEditingCode = null;
+        let html5QrCode = null;
+
+        async function loadData() {
+            try {
+                const res = await fetch('/products');
+                allProducts = await res.json();
+                updateDepts(allProducts);
+                renderMobileCards(allProducts);
+            } catch (err) {
+                showToast("Error al conectar ❌", "error");
+            }
+        }
+
+        function updateDepts(products) {
+            const depts = [...new Set(products.map(p => p.departamento))].sort();
+            const select = document.getElementById('filterDept');
+            select.innerHTML = '<option value="">Todo el Local</option>';
+            depts.forEach(d => {
+                const opt = document.createElement('option');
+                opt.value = d; opt.textContent = d; select.appendChild(opt);
+            });
+        }
+
+        function renderMobileCards(products) {
+            const container = document.getElementById('productsBody');
+            container.innerHTML = '';
+            products.forEach(p => {
+                const card = document.createElement('div');
+                card.className = 'product-card';
+                card.onclick = () => openModal(p.codigo, p.descripcion, p.inventario);
+                card.innerHTML = `
+                    <div class="card-glow"></div>
+                    <div class="card-header">
+                        <span class="tag-dept">${p.departamento}</span>
+                        <div class="card-id">${p.codigo}</div>
+                    </div>
+                    <div class="card-name">${p.descripcion}</div>
+                    <div class="card-stats">
+                        <div class="stat-group">
+                            <div class="label">Precio</div>
+                            <div class="val price">$${p.precio.toFixed(2)}</div>
+                        </div>
+                        <div class="stat-group" style="text-align: right;">
+                            <div class="label">Stock</div>
+                            <div class="val stock">${p.inventario}</div>
+                        </div>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        function multiFilter() {
+            const search = document.getElementById('masterSearch').value.toLowerCase();
+            const dept = document.getElementById('filterDept').value;
+            const stock = document.getElementById('filterStock').value;
+
+            const filtered = allProducts.filter(p => {
+                const pDesc = p.descripcion.toLowerCase();
+                const pCode = p.codigo.toLowerCase();
+                // Búsqueda flexible: en descripción, en código completo, o en el código sin el primer carácter
+                const matchSearch = pDesc.includes(search) ||
+                    pCode.includes(search) ||
+                    (pCode.length > 1 && pCode.substring(1).includes(search));
+
+                const matchDept = !dept || p.departamento === dept;
+                let matchStock = true;
+                if (stock === 'zero') matchStock = p.inventario <= 0;
+                if (stock === 'low') matchStock = p.inventario > 0 && p.inventario < 10;
+                return matchSearch && matchDept && matchStock;
+            });
+            renderMobileCards(filtered);
+        }
+
+        // Scanner Logic
+        document.getElementById('startScanner').onclick = async () => {
+            if (!window.isSecureContext && location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
+                showToast("Error: La cámara requiere conexión segura (HTTPS) en celulares. 🔒", "error");
+                return;
+            }
+
+            document.getElementById('scannerOverlay').style.display = 'flex';
+            html5QrCode = new Html5Qrcode("reader");
+            const config = { fps: 15, qrbox: { width: 250, height: 250 } };
+
+            try {
+                await html5QrCode.start({ facingMode: "environment" }, config, (decodedText) => {
+                    document.getElementById('masterSearch').value = decodedText;
+                    multiFilter();
+                    stopScanning();
+                    showToast("¡Código Escaneado! ✅", "success");
+                });
+            } catch (err) {
+                let errorMsg = "Error al activar cámara ❌";
+                if (err.name === "NotAllowedError") errorMsg = "Permiso de cámara denegado 🚫";
+                else if (err.name === "NotFoundError") errorMsg = "No se encontró cámara 📷";
+
+                showToast(errorMsg, "error");
+                console.error("Camera Error:", err);
+                stopScanning();
+            }
+        };
+
+        function stopScanning() {
+            if (html5QrCode) {
+                html5QrCode.stop().then(() => {
+                    document.getElementById('scannerOverlay').style.display = 'none';
+                    html5QrCode = null;
+                }).catch(() => {
+                    document.getElementById('scannerOverlay').style.display = 'none';
+                });
+            } else {
+                document.getElementById('scannerOverlay').style.display = 'none';
+            }
+        }
+
+        function openModal(id, name, stock) {
+            currentEditingCode = id;
+            document.getElementById('modalProdName').textContent = name;
+            document.getElementById('modalProdId').textContent = id;
+            document.getElementById('editStock').value = stock;
+            document.getElementById('editModal').style.display = 'flex';
+            document.getElementById('editStock').focus();
+        }
+
+        function closeModal() { document.getElementById('editModal').style.display = 'none'; }
+
+        async function saveInventory() {
+            const val = parseFloat(document.getElementById('editStock').value);
+            try {
+                const res = await fetch('/update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ codigo: currentEditingCode, cantidad: val })
+                });
+                if (res.ok) {
+                    showToast("Actualizado ✅", "success");
+                    closeModal();
+                    loadData();
+                }
+            } catch (err) { showToast("Error de red ❌", "error"); }
+        }
+
+        function showToast(msg, type) {
+            const t = document.getElementById('toast');
+            t.textContent = msg;
+            t.style.display = 'block';
+            t.style.background = type === 'success' ? '#10b981' : '#ef4444';
+            setTimeout(() => t.style.display = 'none', 2500);
+        }
+
+        loadData();
+    </script>
+</body>
+
+</html>
