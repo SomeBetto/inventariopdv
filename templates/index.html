@@ -291,7 +291,36 @@
             font-size: 2rem;
             font-weight: 800;
             text-align: center;
+        }
+
+        .qty-controls {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            gap: 1rem;
             margin-bottom: 2rem;
+        }
+
+        .btn-qty {
+            background: var(--surface-accent);
+            border: 1px solid var(--border);
+            color: white;
+            width: 60px;
+            height: 60px;
+            border-radius: 18px;
+            font-size: 1.5rem;
+            font-weight: 700;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s;
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.2);
+        }
+
+        .btn-qty:active {
+            transform: scale(0.9);
+            background: var(--primary);
         }
 
         .btn-action {
@@ -425,7 +454,11 @@
             <div style="text-align: center; margin-bottom: 2rem;">
                 <span id="modalProdId" style="font-family: monospace; color: var(--text-dim);">ID</span>
             </div>
-            <input type="number" id="editStock" step="0.01" class="input-vibe">
+            <div class="qty-controls">
+                <button class="btn-qty" onclick="changeQty(-1)">-</button>
+                <input type="number" id="editStock" step="0.01" class="input-vibe">
+                <button class="btn-qty" onclick="changeQty(1)">+</button>
+            </div>
             <div style="display: flex; gap: 1rem;">
                 <button class="btn-action" onclick="closeModal()"
                     style="background: rgba(255,255,255,0.05); color: white; flex: 1;">Cerrar</button>
@@ -565,6 +598,13 @@
         }
 
         function closeModal() { document.getElementById('editModal').style.display = 'none'; }
+
+        function changeQty(delta) {
+            const input = document.getElementById('editStock');
+            let val = parseFloat(input.value) || 0;
+            val += delta;
+            input.value = val;
+        }
 
         async function saveInventory() {
             const val = parseFloat(document.getElementById('editStock').value);
