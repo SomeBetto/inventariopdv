@@ -33,7 +33,6 @@ if not exist .git (
 :: 2. Ejecucion
 :: ==================================================
 
-:: 6. Ejecucion
 echo.
 echo Generando codigo QR...
 py -3-32 show_qr.py
