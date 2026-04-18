@@ -35,21 +35,21 @@ def get_connection():
         fb_library_name=FB_CLIENT_LIBRARY
     )
 
-def get_product(codigo):
+def get_product(query):
     try:
         with get_connection() as con:
             cur = con.cursor()
-            # Búsqueda flexible: exacta OR terminando con el código (para ignorar prefijos como E, B, etc)
-            query = """
+            # Búsqueda flexible: exacta por código, parcial por código (LIKE) o parcial por descripción (CONTAINING)
+            query_sql = """
                 SELECT p.CODIGO, p.DESCRIPCION, p.DINVENTARIO, p.PVENTA, d.NOMBRE 
                 FROM PRODUCTOS p 
                 LEFT JOIN DEPARTAMENTOS d ON p.DEPT = d.ID 
-                WHERE p.CODIGO = ? OR p.CODIGO LIKE ?
+                WHERE p.CODIGO = ? OR p.CODIGO LIKE ? OR p.DESCRIPCION CONTAINING ?
             """
             # Si el código es puramente numérico y tiene más de 5 dígitos, 
             # buscaremos también con comodín al principio.
-            like_pattern = f"%{codigo}" if codigo.isdigit() and len(codigo) > 5 else codigo
-            cur.execute(query, (codigo, like_pattern))
+            like_pattern = f"%{query}" if query.isdigit() and len(query) > 5 else query
+            cur.execute(query_sql, (query, like_pattern, query))
             row = cur.fetchone()
             if row:
                 return {
@@ -61,8 +61,37 @@ def get_product(codigo):
                 }
             return None
     except Exception as e:
-        print(f"Error buscando producto {codigo}: {e}")
+        print(f"Error buscando producto {query}: {e}")
         return None
+
+def search_products(query):
+    try:
+        with get_connection() as con:
+            cur = con.cursor()
+            # Búsqueda flexible: exacta por código, parcial por código (LIKE) o parcial por descripción (CONTAINING)
+            query_sql = """
+                SELECT p.CODIGO, p.DESCRIPCION, p.DINVENTARIO, p.PVENTA, d.NOMBRE 
+                FROM PRODUCTOS p 
+                LEFT JOIN DEPARTAMENTOS d ON p.DEPT = d.ID 
+                WHERE p.CODIGO = ? OR p.CODIGO LIKE ? OR p.DESCRIPCION CONTAINING ?
+                ORDER BY p.DESCRIPCION
+            """
+            like_pattern = f"%{query}" if query.isdigit() and len(query) > 5 else query
+            cur.execute(query_sql, (query, like_pattern, query))
+            rows = cur.fetchall()
+            products = []
+            for row in rows:
+                products.append({
+                    'codigo': row[0].strip(),
+                    'descripcion': row[1].strip(),
+                    'inventario': float(row[2]) if row[2] is not None else 0.0,
+                    'precio': float(row[3]) if row[3] is not None else 0.0,
+                    'departamento': row[4].strip() if row[4] is not None else "Sin Depto"
+                })
+            return products
+    except Exception as e:
+        print(f"Error buscando productos con query {query}: {e}")
+        return []
 
 def get_all_products():
     try:

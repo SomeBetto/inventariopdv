@@ -15,15 +15,32 @@ def get_products():
 @app.route('/search', methods=['POST'])
 def search():
     data = request.get_json()
-    codigo = data.get('codigo')
-    if not codigo:
-        return jsonify({'error': 'Código no proporcionado'}), 400
+    query = data.get('query') or data.get('codigo')
+    print(f"[SEARCH] Consulta recibida: {query}")
     
-    product = db_manager.get_product(codigo)
+    if not query:
+        return jsonify({'error': 'Parámetro de búsqueda no proporcionado'}), 400
+    
+    product = db_manager.get_product(query)
     if product:
+        print(f"[SEARCH] Producto encontrado: {product['descripcion']} (Código: {product['codigo']})")
         return jsonify(product)
     else:
+        print(f"[SEARCH] No se encontró ningún producto para: {query}")
         return jsonify({'error': 'Producto no encontrado'}), 404
+
+@app.route('/searchall', methods=['POST'])
+def search_all():
+    data = request.get_json()
+    query = data.get('query') or data.get('codigo')
+    print(f"[SEARCHALL] Consulta recibida: {query}")
+    
+    if not query:
+        return jsonify({'error': 'Parámetro de búsqueda no proporcionado'}), 400
+    
+    products = db_manager.search_products(query)
+    print(f"[SEARCHALL] Se encontraron {len(products)} coincidencias para: {query}")
+    return jsonify(products)
 
 @app.route('/update', methods=['POST'])
 def update():
