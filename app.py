@@ -7,51 +7,59 @@ app = Flask(__name__)
 def index():
     return render_template('index.html')
 
-@app.route('/products')
-def get_products():
-    products = db_manager.get_all_products()
-    return jsonify(products)
+@app.route('/api/inventory')
+def get_inventory():
+    return jsonify(db_manager.get_inventory_all())
 
-@app.route('/search', methods=['POST'])
-def search():
+@app.route('/api/inventory/search', methods=['POST'])
+def search_inventory():
     data = request.get_json()
     query = data.get('query') or data.get('codigo')
-    print(f"[SEARCH] Consulta recibida: {query}")
-    
     if not query:
         return jsonify({'error': 'Parámetro de búsqueda no proporcionado'}), 400
-    
-    product = db_manager.get_product(query)
-    if product:
-        print(f"[SEARCH] Producto encontrado: {product['descripcion']} (Código: {product['codigo']})")
-        return jsonify(product)
-    else:
-        print(f"[SEARCH] No se encontró ningún producto para: {query}")
-        return jsonify({'error': 'Producto no encontrado'}), 404
+    return jsonify(db_manager.search_inventory(query))
 
-@app.route('/searchall', methods=['POST'])
-def search_all():
-    data = request.get_json()
-    query = data.get('query') or data.get('codigo')
-    print(f"[SEARCHALL] Consulta recibida: {query}")
-    
-    if not query:
-        return jsonify({'error': 'Parámetro de búsqueda no proporcionado'}), 400
-    
-    products = db_manager.search_products(query)
-    print(f"[SEARCHALL] Se encontraron {len(products)} coincidencias para: {query}")
-    return jsonify(products)
-
-@app.route('/update', methods=['POST'])
-def update():
+@app.route('/api/inventory/update', methods=['POST'])
+def update_inventory():
     data = request.get_json()
     codigo = data.get('codigo')
     nueva_cantidad = data.get('cantidad')
-    
     if not codigo or nueva_cantidad is None:
         return jsonify({'error': 'Datos incompletos'}), 400
-    
     success, message = db_manager.update_inventory(codigo, nueva_cantidad)
+    if success:
+        return jsonify({'message': message})
+    else:
+        return jsonify({'error': message}), 500
+
+@app.route('/api/prices')
+def get_prices():
+    return jsonify(db_manager.get_prices_all())
+
+@app.route('/api/prices/search', methods=['POST'])
+def search_prices():
+    data = request.get_json()
+    query = data.get('query') or data.get('codigo')
+    if not query:
+        return jsonify({'error': 'Parámetro de búsqueda no proporcionado'}), 400
+    return jsonify(db_manager.search_prices(query))
+
+@app.route('/api/prices/update', methods=['POST'])
+def update_prices():
+    data = request.get_json()
+    codigo = data.get('codigo')
+    p_venta = data.get('p_venta')
+    p_costo = data.get('p_costo')
+    
+    if not codigo or (p_venta is None and p_costo is None):
+        return jsonify({'error': 'Datos incompletos'}), 400
+    
+    if p_venta is not None:
+        p_venta = float(p_venta)
+    if p_costo is not None:
+        p_costo = float(p_costo)
+
+    success, message = db_manager.update_prices(codigo, p_venta, p_costo)
     if success:
         return jsonify({'message': message})
     else:

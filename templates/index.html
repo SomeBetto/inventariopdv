@@ -57,6 +57,34 @@
             margin-bottom: 0.5rem;
         }
 
+        .tab-container {
+            display: flex;
+            background: rgba(0, 0, 0, 0.4);
+            border-radius: 100px;
+            padding: 0.3rem;
+            margin: 1rem auto 0;
+            width: 90%;
+            max-width: 400px;
+        }
+
+        .tab {
+            flex: 1;
+            padding: 0.6rem;
+            text-align: center;
+            border-radius: 100px;
+            font-weight: 600;
+            font-size: 0.9rem;
+            cursor: pointer;
+            transition: all 0.3s ease;
+            color: var(--text-dim);
+        }
+
+        .tab.active {
+            background: var(--surface-accent);
+            color: white;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        }
+
         .sticky-controls {
             position: sticky;
             top: 0;
@@ -397,6 +425,11 @@
     <header>
         <div class="logo-vibe">Inventario Elite</div>
         <p style="color: var(--text-dim); font-size: 0.9rem;">Control total en la palma de tu mano</p>
+        
+        <div class="tab-container">
+            <div class="tab active" id="tab-inventory" onclick="changeTab('inventory')">🛒 Inventario</div>
+            <div class="tab" id="tab-prices" onclick="changeTab('prices')">💵 Precios</div>
+        </div>
     </header>
 
     <div class="sticky-controls">
@@ -446,7 +479,7 @@
 
     <div id="productsBody" class="products-grid"></div>
 
-    <!-- Bottom Sheet Modal -->
+    <!-- Bottom Sheet Modal Stock -->
     <div id="editModal" class="modal-overlay">
         <div class="modal">
             <div class="modal-pull"></div>
@@ -467,19 +500,63 @@
         </div>
     </div>
 
+    <!-- Bottom Sheet Modal Prices -->
+    <div id="priceModal" class="modal-overlay">
+        <div class="modal">
+            <div class="modal-pull"></div>
+            <div class="modal-title" id="priceModalProdName">Ajustar Precios</div>
+            
+            <div style="margin-bottom: 1rem;">
+                <label style="color: var(--text-dim); font-size: 0.8rem; text-transform: uppercase;">Precio de Compra</label>
+                <input type="number" id="editCosto" step="0.01" class="input-vibe" style="margin-top: 0.5rem; text-align: left; font-size: 1.5rem;" onkeyup="calcProfitPreview()">
+            </div>
+            
+            <div style="margin-bottom: 1.5rem;">
+                <label style="color: var(--text-dim); font-size: 0.8rem; text-transform: uppercase;">Precio de Venta</label>
+                <input type="number" id="editVenta" step="0.01" class="input-vibe" style="margin-top: 0.5rem; text-align: left; font-size: 1.5rem;" onkeyup="calcProfitPreview()">
+            </div>
+
+            <div style="text-align: center; margin-bottom: 2rem;">
+                <span style="color: var(--text-dim); font-size: 0.9rem;">Ganancia Proyectada: </span>
+                <span id="profitPreview" style="color: #a78bfa; font-weight: 700; font-size: 1.2rem;">0%</span>
+            </div>
+
+            <div style="display: flex; gap: 1rem;">
+                <button class="btn-action" onclick="closePriceModal()"
+                    style="background: rgba(255,255,255,0.05); color: white; flex: 1;">Cerrar</button>
+                <button class="btn-action btn-save" onclick="savePrices()" style="flex: 2;">Actualizar Precios</button>
+            </div>
+        </div>
+    </div>
+
     <div id="toast"></div>
 
     <script>
         let allProducts = [];
         let currentEditingCode = null;
         let html5QrCode = null;
+        let currentTab = 'inventory';
+
+        function changeTab(tab) {
+            currentTab = tab;
+            document.getElementById('tab-inventory').classList.toggle('active', tab === 'inventory');
+            document.getElementById('tab-prices').classList.toggle('active', tab === 'prices');
+            
+            // Toggle specific UI options if needed
+            document.getElementById('filterStock').style.display = tab === 'inventory' ? 'block' : 'none';
+            
+            document.getElementById('masterSearch').value = '';
+            document.getElementById('productsBody').innerHTML = ''; // Limpiar temporalmente
+            loadData();
+        }
 
         async function loadData() {
             try {
-                const res = await fetch('/products');
+                const endpoint = currentTab === 'inventory' ? '/api/inventory' : '/api/prices';
+                const res = await fetch(endpoint);
                 allProducts = await res.json();
                 updateDepts(allProducts);
-                renderMobileCards(allProducts);
+                multiFilter(); // instead of renderMobileCards so filters apply immediately
             } catch (err) {
                 showToast("Error al conectar ❌", "error");
             }
@@ -501,7 +578,42 @@
             products.forEach(p => {
                 const card = document.createElement('div');
                 card.className = 'product-card';
-                card.onclick = () => openModal(p.codigo, p.descripcion, p.inventario);
+                
+                const safeDesc = p.descripcion.replace(/'/g, "\\'");
+                
+                let statsHtml = '';
+                let buttonsHtml = '';
+
+                if (currentTab === 'inventory') {
+                    statsHtml = `
+                        <div class="stat-group">
+                            <div class="label">Stock Actual</div>
+                            <div class="val stock">${p.inventario}</div>
+                        </div>
+                    `;
+                    buttonsHtml = `
+                        <button class="btn-action" onclick="openModal('${p.codigo}', '${safeDesc}', ${p.inventario})" style="width: 100%; padding: 0.8rem; font-size: 1rem; background: rgba(16, 185, 129, 0.15); color: var(--success); border: 1px solid var(--success);">Ajustar Stock</button>
+                    `;
+                } else {
+                    let ganancia = 0;
+                    if (p.p_costo > 0) { ganancia = ((p.precio - p.p_costo) / p.p_costo) * 100; } 
+                    else if (p.precio > 0) { ganancia = 100; }
+
+                    statsHtml = `
+                        <div class="stat-group">
+                            <div class="label">Precio V.</div>
+                            <div class="val price">$${p.precio.toFixed(2)}</div>
+                        </div>
+                        <div class="stat-group" style="text-align: center;">
+                            <div class="label">Ganancia</div>
+                            <div class="val" style="color: #a78bfa;">${ganancia.toFixed(1)}%</div>
+                        </div>
+                    `;
+                    buttonsHtml = `
+                        <button class="btn-action" onclick="openPriceModal('${p.codigo}', '${safeDesc}', ${p.precio}, ${p.p_costo})" style="width: 100%; padding: 0.8rem; font-size: 1rem; background: rgba(139, 92, 246, 0.15); color: var(--primary); border: 1px solid var(--primary);">Ajustar Precios</button>
+                    `;
+                }
+
                 card.innerHTML = `
                     <div class="card-glow"></div>
                     <div class="card-header">
@@ -510,14 +622,10 @@
                     </div>
                     <div class="card-name">${p.descripcion}</div>
                     <div class="card-stats">
-                        <div class="stat-group">
-                            <div class="label">Precio</div>
-                            <div class="val price">$${p.precio.toFixed(2)}</div>
-                        </div>
-                        <div class="stat-group" style="text-align: right;">
-                            <div class="label">Stock</div>
-                            <div class="val stock">${p.inventario}</div>
-                        </div>
+                        ${statsHtml}
+                    </div>
+                    <div style="margin-top: 0.5rem;">
+                        ${buttonsHtml}
                     </div>
                 `;
                 container.appendChild(card);
@@ -539,8 +647,10 @@
 
                 const matchDept = !dept || p.departamento === dept;
                 let matchStock = true;
-                if (stock === 'zero') matchStock = p.inventario <= 0;
-                if (stock === 'low') matchStock = p.inventario > 0 && p.inventario < 10;
+                if (currentTab === 'inventory') {
+                    if (stock === 'zero') matchStock = p.inventario <= 0;
+                    if (stock === 'low') matchStock = p.inventario > 0 && p.inventario < 10;
+                }
                 return matchSearch && matchDept && matchStock;
             });
             renderMobileCards(filtered);
@@ -609,7 +719,7 @@
         async function saveInventory() {
             const val = parseFloat(document.getElementById('editStock').value);
             try {
-                const res = await fetch('/update', {
+                const res = await fetch('/api/inventory/update', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ codigo: currentEditingCode, cantidad: val })
@@ -618,6 +728,48 @@
                     showToast("Actualizado ✅", "success");
                     closeModal();
                     loadData();
+                }
+            } catch (err) { showToast("Error de red ❌", "error"); }
+        }
+
+        function openPriceModal(id, name, p_venta, p_costo) {
+            currentEditingCode = id;
+            document.getElementById('priceModalProdName').textContent = name;
+            document.getElementById('editVenta').value = p_venta.toFixed(2);
+            document.getElementById('editCosto').value = (p_costo || 0).toFixed(2);
+            calcProfitPreview();
+            document.getElementById('priceModal').style.display = 'flex';
+        }
+
+        function closePriceModal() { document.getElementById('priceModal').style.display = 'none'; }
+
+        function calcProfitPreview() {
+            const v = parseFloat(document.getElementById('editVenta').value) || 0;
+            const c = parseFloat(document.getElementById('editCosto').value) || 0;
+            let profit = 0;
+            if (c > 0) {
+                profit = ((v - c) / c) * 100;
+            } else if (v > 0) {
+                profit = 100;
+            }
+            document.getElementById('profitPreview').textContent = profit.toFixed(1) + '%';
+        }
+
+        async function savePrices() {
+            const v = parseFloat(document.getElementById('editVenta').value);
+            const c = parseFloat(document.getElementById('editCosto').value);
+            try {
+                const res = await fetch('/api/prices/update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ codigo: currentEditingCode, p_venta: v, p_costo: c })
+                });
+                if (res.ok) {
+                    showToast("Precios Actualizados ✅", "success");
+                    closePriceModal();
+                    loadData();
+                } else {
+                    showToast("Error al actualizar ❌", "error");
                 }
             } catch (err) { showToast("Error de red ❌", "error"); }
         }
