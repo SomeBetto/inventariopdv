@@ -30,17 +30,29 @@ if not exist .git (
 )
 
 :: ==================================================
-:: 2. Ejecucion
+:: 2. Entorno Virtual (venv)
+:: ==================================================
+if not exist "venv" (
+    echo [INFO] Creando entorno virtual local (32-bit)...
+    py -3-32 -m venv venv
+)
+
+echo [INFO] Activando entorno virtual e instalando dependencias...
+call venv\Scripts\activate.bat
+pip install -r requirements.txt --quiet
+
+:: ==================================================
+:: 3. Ejecucion
 :: ==================================================
 
 echo.
 echo Generando codigo QR...
-py -3-32 show_qr.py
+python show_qr.py
 
 echo.
 echo Iniciando Servidor Web...
 echo --- Accede en: http://localhost:5000
-py -3-32 app.py
+python app.py
 
 echo.
 echo Servidor finalizado.
