@@ -43,18 +43,25 @@ def search_inventory(query):
                 SELECT p.CODIGO, p.DESCRIPCION, p.DINVENTARIO, d.NOMBRE 
                 FROM PRODUCTOS p 
                 LEFT JOIN DEPARTAMENTOS d ON p.DEPT = d.ID 
-                WHERE p.CODIGO = ? OR p.CODIGO LIKE ? OR p.DESCRIPCION CONTAINING ?
+                WHERE p.CODIGO CONTAINING ? OR p.DESCRIPCION CONTAINING ?
                 ORDER BY p.DESCRIPCION
             """
-            like_pattern = f"%{query}" if query.isdigit() and len(query) > 5 else query
-            cur.execute(query_sql, (query, like_pattern, query))
+            print(f"--- DEBUG search_inventory ---")
+            print(f"Parametro de busqueda: '{query}'")
+            cur.execute(query_sql, (query, query))
+            
+            rows = cur.fetchall()
+            print(f"Resultados encontrados ({len(rows)}):")
+            for r in rows:
+                print(r)
+            print("------------------------------")
             
             return [{
                 'codigo': row[0].strip(),
                 'descripcion': row[1].strip(),
                 'inventario': float(row[2]) if row[2] is not None else 0.0,
                 'departamento': row[3].strip() if row[3] is not None else "Sin Depto"
-            } for row in cur.fetchall()]
+            } for row in rows]
     except Exception as e:
         print(f"Error en search_inventory: {e}")
         return []
@@ -87,11 +94,18 @@ def search_prices(query):
                 SELECT p.CODIGO, p.DESCRIPCION, p.PVENTA, p.PCOSTO, d.NOMBRE 
                 FROM PRODUCTOS p 
                 LEFT JOIN DEPARTAMENTOS d ON p.DEPT = d.ID 
-                WHERE p.CODIGO = ? OR p.CODIGO LIKE ? OR p.DESCRIPCION CONTAINING ?
+                WHERE p.CODIGO CONTAINING ? OR p.DESCRIPCION CONTAINING ?
                 ORDER BY p.DESCRIPCION
             """
-            like_pattern = f"%{query}" if query.isdigit() and len(query) > 5 else query
-            cur.execute(query_sql, (query, like_pattern, query))
+            print(f"--- DEBUG search_prices ---")
+            print(f"Parametro de busqueda: '{query}'")
+            cur.execute(query_sql, (query, query))
+            
+            rows = cur.fetchall()
+            print(f"Resultados encontrados ({len(rows)}):")
+            for r in rows:
+                print(r)
+            print("------------------------------")
             
             return [{
                 'codigo': row[0].strip(),
@@ -99,7 +113,7 @@ def search_prices(query):
                 'precio': float(row[2]) if row[2] is not None else 0.0,
                 'p_costo': float(row[3]) if row[3] is not None else 0.0,
                 'departamento': row[4].strip() if row[4] is not None else "Sin Depto"
-            } for row in cur.fetchall()]
+            } for row in rows]
     except Exception as e:
         print(f"Error en search_prices: {e}")
         return []

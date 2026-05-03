@@ -439,7 +439,7 @@
                 <circle cx="11" cy="11" r="8"></circle>
                 <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
             </svg>
-            <input type="text" id="masterSearch" placeholder="Buscar por nombre o ID..." onkeyup="multiFilter()">
+            <input type="text" id="masterSearch" placeholder="Buscar por nombre o ID..." onkeyup="multiFilter(event)">
             <button class="btn-scan" id="startScanner">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                     stroke-linecap="round" stroke-linejoin="round">
@@ -632,28 +632,67 @@
             });
         }
 
-        function multiFilter() {
-            const search = document.getElementById('masterSearch').value.toLowerCase();
+        let searchTimeout = null;
+
+        async function fetchBackendSearch(searchQuery) {
+            const endpoint = currentTab === 'inventory' ? '/api/inventory/search' : '/api/prices/search';
+            try {
+                const res = await fetch(endpoint, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ query: searchQuery })
+                });
+                return await res.json();
+            } catch (err) {
+                console.error("Error backend search:", err);
+                return [];
+            }
+        }
+
+        async function doFilter() {
+            const search = document.getElementById('masterSearch').value.trim();
             const dept = document.getElementById('filterDept').value;
             const stock = document.getElementById('filterStock').value;
 
-            const filtered = allProducts.filter(p => {
-                const pDesc = p.descripcion.toLowerCase();
-                const pCode = p.codigo.toLowerCase();
-                // Búsqueda flexible: en descripción, en código completo, o en el código sin el primer carácter
-                const matchSearch = pDesc.includes(search) ||
-                    pCode.includes(search) ||
-                    (pCode.length > 1 && pCode.substring(1).includes(search));
+            let dataToFilter = allProducts;
+            if (search.length > 0) {
+                document.getElementById('productsBody').innerHTML = '<div style="text-align: center; color: var(--text-dim); padding: 2rem;">Buscando...</div>';
+                dataToFilter = await fetchBackendSearch(search);
+            }
 
+            const filtered = dataToFilter.filter(p => {
                 const matchDept = !dept || p.departamento === dept;
                 let matchStock = true;
                 if (currentTab === 'inventory') {
                     if (stock === 'zero') matchStock = p.inventario <= 0;
                     if (stock === 'low') matchStock = p.inventario > 0 && p.inventario < 10;
                 }
-                return matchSearch && matchDept && matchStock;
+                
+                if (search.length === 0) {
+                    const pDesc = p.descripcion.toLowerCase();
+                    const pCode = p.codigo.toLowerCase();
+                    const searchLower = search.toLowerCase();
+                    const matchSearch = pDesc.includes(searchLower) ||
+                        pCode.includes(searchLower) ||
+                        (pCode.length > 1 && pCode.substring(1).includes(searchLower));
+                    return matchSearch && matchDept && matchStock;
+                }
+                
+                return matchDept && matchStock;
             });
             renderMobileCards(filtered);
+        }
+
+        function multiFilter(event) {
+            if (event && event.key === 'Enter') {
+                if (searchTimeout) clearTimeout(searchTimeout);
+                doFilter();
+                return;
+            }
+            if (searchTimeout) clearTimeout(searchTimeout);
+            searchTimeout = setTimeout(() => {
+                doFilter();
+            }, 400);
         }
 
         // Scanner Logic
