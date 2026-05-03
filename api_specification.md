@@ -127,13 +127,104 @@ Permite actualizar el Precio de Compra (`p_costo`), el Precio de Venta (`p_venta
 { "message": "Precios actualizados exitosamente" }
 ```
 
+## 3. Módulo: Catálogo (Catalog POST/GET)
+Rutas dedicadas a los datos maestros de los productos, como la descripción y departamento.
+
+### 3.1. Obtener todo el catálogo
+- **Ruta:** `GET /api/catalog`
+- **Uso en el Frontend:**
+  - Llamada principal cuando el usuario cambia a la pestaña "Catálogo".
+- **Respuesta Exitosa (200 OK):**
+```json
+[
+  {
+    "codigo": "7501055310883",
+    "descripcion": "COCA COLA 600ML",
+    "departamento": "Abarrotes"
+  }
+]
+```
+
+### 3.2. Buscar en Catálogo
+- **Ruta:** `POST /api/catalog/search`
+- **Uso en el Frontend:**
+  - Operación de búsqueda idéntica a los otros módulos pero apuntando al catálogo.
+- **Body:**
+```json
+{
+  "query": "coca cola"
+}
+```
+
+### 3.3. Actualizar Descripción
+Permite actualizar la descripción de un producto.
+
+- **Ruta:** `POST /api/catalog/update`
+- **Uso en el Frontend:**
+  - Disparado desde un Modal específico (descModal) que pide ingresar la nueva "Descripción".
+- **Body:**
+```json
+{
+  "codigo": "7501055310883",
+  "descripcion": "COCA COLA 600ML NUEVA"
+}
+```
+- **Respuesta Exitosa (200 OK):**
+```json
+{ "message": "Descripción actualizada exitosamente" }
+```
+
 ---
 
-## 3. Funcionalidades y Consideraciones Generales del Frontend
+## 4. Módulo: Ventas (Sales POST)
+Rutas dedicadas al análisis y lectura de las ventas procesadas (histórico).
+
+### 4.1. Reporte de Ventas Agrupado
+- **Ruta:** `POST /api/sales/report`
+- **Uso en el Frontend:**
+  - Llamado al cambiar a la pestaña "Ventas" o cambiar cualquier filtro de tiempo/agrupación.
+- **Body:**
+```json
+{
+  "time_range": "day", 
+  "group_by": "product",
+  "department": ""
+}
+```
+* `time_range`: "day", "week", "month", "year"
+* `group_by`: "product", "department"
+* `department`: (Opcional) Filtrar un departamento específico cuando se agrupa por producto.
+
+- **Respuesta Exitosa (Agrupado por Producto):**
+```json
+[
+  {
+    "codigo": "7501055310883",
+    "nombre": "COCA COLA 600ML",
+    "departamento": "Abarrotes",
+    "cantidad": 12.0,
+    "ingreso": 240.0
+  }
+]
+```
+- **Respuesta Exitosa (Agrupado por Departamento):**
+```json
+[
+  {
+    "nombre": "Abarrotes",
+    "cantidad": 50.0,
+    "ingreso": 1500.50
+  }
+]
+```
+
+---
+
+## 5. Funcionalidades y Consideraciones Generales del Frontend
 
 Para replicar el funcionamiento del frontend original, asegúrate de implementar:
 
-1. **Estado Compartido y Pestañas:**  La UI está segmentada en dos contextos principales (Inventario y Precios). Dependiendo de cuál esté activo, varían los endpoints a consumir y la tarjeta gráfica (una muestra el badge de stock; la otra los badges de precio/ganancia).
+1. **Estado Compartido y Pestañas:**  La UI está segmentada en tres contextos principales (Inventario, Precios, Catálogo). Dependiendo de cuál esté activo, varían los endpoints a consumir y la tarjeta gráfica.
 2. **Filtrado Múltiple Híbrido:** El backend procesa las búsquedas por texto (`coca`, `1234`), pero el frontend se hace cargo del filtrado por categorías (ej. departamento="Lácteos") y por umbrales visuales de negocio (ej. "Sin Stock" o "Bajo Stock"). 
 3. **Manejo de Errores y Loading:** En cada petición al backend se debe prevenir el spam de clicks mediante estados de "cargando". Además, cualquier código `400` o `500` debe ser atrapado para mostrar alertas al usuario ("Toast").
 4. **CORS:** Actualmente la API opera dentro de una Red Local y no expone métodos de autenticación explícitos. Si el *"nuevo front"* será una app que no comparta el origen de puerto y dominio del servidor (ej. React corriendo en el puerto `3000`), será necesario habilitar `flask-cors` en `app.py`.

@@ -187,3 +187,161 @@ def update_prices(codigo, p_venta, p_costo):
     except Exception as e:
         print(f"Error actualizando precios para {codigo}: {e}")
         return False, str(e)
+
+def search_catalog(query):
+    try:
+        with get_connection() as con:
+            cur = con.cursor()
+            query_sql = """
+                SELECT p.CODIGO, p.DESCRIPCION, d.NOMBRE 
+                FROM PRODUCTOS p 
+                LEFT JOIN DEPARTAMENTOS d ON p.DEPT = d.ID 
+                WHERE p.CODIGO CONTAINING ? OR p.DESCRIPCION CONTAINING ?
+                ORDER BY p.DESCRIPCION
+            """
+            cur.execute(query_sql, (query, query))
+            
+            rows = cur.fetchall()
+            return [{
+                'codigo': row[0].strip(),
+                'descripcion': row[1].strip(),
+                'departamento': row[2].strip() if row[2] is not None else "Sin Depto"
+            } for row in rows]
+    except Exception as e:
+        print(f"Error en search_catalog: {e}")
+        return []
+
+def get_catalog_all():
+    try:
+        with get_connection() as con:
+            cur = con.cursor()
+            cur.execute("""
+                SELECT p.CODIGO, p.DESCRIPCION, d.NOMBRE 
+                FROM PRODUCTOS p 
+                LEFT JOIN DEPARTAMENTOS d ON p.DEPT = d.ID 
+                ORDER BY p.DESCRIPCION
+            """)
+            return [{
+                'codigo': row[0].strip(),
+                'descripcion': row[1].strip(),
+                'departamento': row[2].strip() if row[2] is not None else "Sin Depto"
+            } for row in cur.fetchall()]
+    except Exception as e:
+        print(f"Error en get_catalog_all: {e}")
+        return []
+
+def update_description(codigo, nueva_descripcion):
+    try:
+        with get_connection() as con:
+            cur = con.cursor()
+            
+            cur.execute("SELECT CODIGO FROM PRODUCTOS WHERE CODIGO = ?", (codigo,))
+            if not cur.fetchone():
+                return False, "Producto no encontrado"
+            
+            if nueva_descripcion is not None and nueva_descripcion.strip() != "":
+                cur.execute("UPDATE PRODUCTOS SET DESCRIPCION = ? WHERE CODIGO = ?", (nueva_descripcion.strip(), codigo))
+                con.commit()
+                return True, "Descripción actualizada exitosamente"
+            else:
+                return False, "La descripción no puede estar vacía"
+    except Exception as e:
+        print(f"Error actualizando descripción para {codigo}: {e}")
+        return False, str(e)
+
+def get_sales_report(time_range, group_by, depto_filter=None):
+    from datetime import datetime, timedelta
+    
+    now = datetime.now()
+    if time_range == 'day':
+        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        end = start + timedelta(days=1)
+    elif time_range == 'week':
+        start = now.replace(hour=0, minute=0, second=0, microsecond=0) - timedelta(days=now.weekday())
+        end = start + timedelta(days=7)
+    elif time_range == 'month':
+        start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
+        if start.month == 12:
+            end = start.replace(year=start.year+1, month=1)
+        else:
+            end = start.replace(month=start.month+1)
+    elif time_range == 'year':
+        start = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
+        end = start.replace(year=start.year+1)
+    else:
+        start = now.replace(hour=0, minute=0, second=0, microsecond=0)
+        end = start + timedelta(days=1)
+
+    try:
+        with get_connection() as con:
+            cur = con.cursor()
+            
+            if group_by == 'department':
+                query = """
+                    SELECT 
+                        COALESCE(d.NOMBRE, 'Sin Departamento') as depto,
+                        SUM(vta.CANTIDAD) as cantidad,
+                        SUM(vta.TOTAL_ARTICULO) as ingreso
+                    FROM VENTATICKETS_ARTICULOS vta
+                    JOIN VENTATICKETS vt ON vt.ID = vta.TICKET_ID
+                    LEFT JOIN PRODUCTOS p ON p.CODIGO = vta.PRODUCTO_CODIGO
+                    LEFT JOIN DEPARTAMENTOS d ON d.ID = p.DEPT
+                    WHERE vt.ESTA_CANCELADO = 0 
+                      AND vt.VENDIDO_EN >= ? AND vt.VENDIDO_EN < ?
+                """
+                params = [start, end]
+                
+                query += """
+                    GROUP BY d.NOMBRE
+                    ORDER BY SUM(vta.TOTAL_ARTICULO) DESC
+                """
+                
+                cur.execute(query, params)
+                rows = cur.fetchall()
+                
+                return [{
+                    'nombre': row[0].strip() if row[0] else 'Sin Departamento',
+                    'cantidad': float(row[1]) if row[1] is not None else 0.0,
+                    'ingreso': float(row[2]) if row[2] is not None else 0.0
+                } for row in rows]
+                
+            else: # group by product
+                query = """
+                    SELECT 
+                        vta.PRODUCTO_CODIGO,
+                        vta.PRODUCTO_NOMBRE,
+                        COALESCE(d.NOMBRE, 'Sin Departamento') as depto,
+                        SUM(vta.CANTIDAD) as cantidad,
+                        SUM(vta.TOTAL_ARTICULO) as ingreso
+                    FROM VENTATICKETS_ARTICULOS vta
+                    JOIN VENTATICKETS vt ON vt.ID = vta.TICKET_ID
+                    LEFT JOIN PRODUCTOS p ON p.CODIGO = vta.PRODUCTO_CODIGO
+                    LEFT JOIN DEPARTAMENTOS d ON d.ID = p.DEPT
+                    WHERE vt.ESTA_CANCELADO = 0 
+                      AND vt.VENDIDO_EN >= ? AND vt.VENDIDO_EN < ?
+                """
+                params = [start, end]
+                
+                if depto_filter and depto_filter.strip() != "":
+                    query += " AND d.NOMBRE = ?"
+                    params.append(depto_filter.strip())
+                    
+                query += """
+                    GROUP BY vta.PRODUCTO_CODIGO, vta.PRODUCTO_NOMBRE, d.NOMBRE
+                    ORDER BY SUM(vta.TOTAL_ARTICULO) DESC
+                """
+                
+                cur.execute(query, params)
+                rows = cur.fetchall()
+                
+                return [{
+                    'codigo': row[0].strip() if row[0] else '',
+                    'nombre': row[1].strip() if row[1] else 'Articulo Sin Nombre',
+                    'departamento': row[2].strip() if row[2] else 'Sin Departamento',
+                    'cantidad': float(row[3]) if row[3] is not None else 0.0,
+                    'ingreso': float(row[4]) if row[4] is not None else 0.0
+                } for row in rows]
+                
+    except Exception as e:
+        print(f"Error en get_sales_report: {e}")
+        return []

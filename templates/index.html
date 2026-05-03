@@ -57,32 +57,41 @@
             margin-bottom: 0.5rem;
         }
 
-        .tab-container {
+        .bottom-nav {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            background: rgba(17, 24, 39, 0.9);
+            backdrop-filter: blur(20px);
+            border-top: 1px solid var(--border);
             display: flex;
-            background: rgba(0, 0, 0, 0.4);
-            border-radius: 100px;
-            padding: 0.3rem;
-            margin: 1rem auto 0;
-            width: 90%;
-            max-width: 400px;
+            justify-content: space-around;
+            padding: 0.8rem 1rem calc(0.8rem + env(safe-area-inset-bottom, 0px));
+            z-index: 500;
         }
 
-        .tab {
-            flex: 1;
-            padding: 0.6rem;
-            text-align: center;
-            border-radius: 100px;
-            font-weight: 600;
-            font-size: 0.9rem;
-            cursor: pointer;
-            transition: all 0.3s ease;
+        .nav-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
             color: var(--text-dim);
+            font-size: 0.75rem;
+            font-weight: 600;
+            gap: 0.3rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            padding: 0.5rem 1rem;
+            border-radius: 16px;
         }
 
-        .tab.active {
-            background: var(--surface-accent);
-            color: white;
-            box-shadow: 0 4px 12px rgba(0,0,0,0.2);
+        .nav-item.active {
+            color: var(--primary);
+            background: rgba(139, 92, 246, 0.15);
+        }
+
+        .nav-icon {
+            font-size: 1.4rem;
         }
 
         .sticky-controls {
@@ -423,17 +432,12 @@
 <body>
 
     <header>
-        <div class="logo-vibe">Inventario Elite</div>
+        <div class="logo-vibe">Abarrote Quintero</div>
         <p style="color: var(--text-dim); font-size: 0.9rem;">Control total en la palma de tu mano</p>
-        
-        <div class="tab-container">
-            <div class="tab active" id="tab-inventory" onclick="changeTab('inventory')">🛒 Inventario</div>
-            <div class="tab" id="tab-prices" onclick="changeTab('prices')">💵 Precios</div>
-        </div>
     </header>
 
     <div class="sticky-controls">
-        <div class="search-pill">
+        <div id="searchControls" class="search-pill">
             <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"
                 stroke-linecap="round" stroke-linejoin="round" style="color: var(--text-dim)">
                 <circle cx="11" cy="11" r="8"></circle>
@@ -451,7 +455,7 @@
                 </svg>
             </button>
         </div>
-        <div class="filter-grid">
+        <div id="filterControls" class="filter-grid">
             <div class="filter-item">
                 <select id="filterDept" onchange="multiFilter()">
                     <option value="">Todo el Local</option>
@@ -462,6 +466,28 @@
                     <option value="all">Stock: Todos</option>
                     <option value="zero">Sin Stock</option>
                     <option value="low">Stock Bajo</option>
+                </select>
+            </div>
+        </div>
+        
+        <div id="salesFilters" class="filter-grid" style="display: none;">
+            <div class="filter-item">
+                <select id="filterTime" onchange="loadData()">
+                    <option value="day">Hoy</option>
+                    <option value="week">Esta Semana</option>
+                    <option value="month">Este Mes</option>
+                    <option value="year">Este Año</option>
+                </select>
+            </div>
+            <div class="filter-item">
+                <select id="filterGroup" onchange="loadData()">
+                    <option value="product">Por Producto</option>
+                    <option value="department">Por Departamento</option>
+                </select>
+            </div>
+            <div class="filter-item" style="grid-column: span 2;">
+                <select id="filterDeptSales" onchange="loadData()">
+                    <option value="">Todos los Deptos</option>
                 </select>
             </div>
         </div>
@@ -480,7 +506,7 @@
     <div id="productsBody" class="products-grid"></div>
 
     <!-- Bottom Sheet Modal Stock -->
-    <div id="editModal" class="modal-overlay">
+    <div id="editModal" class="modal-overlay" onclick="if(event.target===this) closeModal()">
         <div class="modal">
             <div class="modal-pull"></div>
             <div class="modal-title" id="modalProdName">Ajustar Stock</div>
@@ -501,19 +527,23 @@
     </div>
 
     <!-- Bottom Sheet Modal Prices -->
-    <div id="priceModal" class="modal-overlay">
+    <div id="priceModal" class="modal-overlay" onclick="if(event.target===this) closePriceModal()">
         <div class="modal">
             <div class="modal-pull"></div>
             <div class="modal-title" id="priceModalProdName">Ajustar Precios</div>
-            
+
             <div style="margin-bottom: 1rem;">
-                <label style="color: var(--text-dim); font-size: 0.8rem; text-transform: uppercase;">Precio de Compra</label>
-                <input type="number" id="editCosto" step="0.01" class="input-vibe" style="margin-top: 0.5rem; text-align: left; font-size: 1.5rem;" onkeyup="calcProfitPreview()">
+                <label style="color: var(--text-dim); font-size: 0.8rem; text-transform: uppercase;">Precio de
+                    Compra</label>
+                <input type="number" id="editCosto" step="0.01" class="input-vibe"
+                    style="margin-top: 0.5rem; text-align: left; font-size: 1.5rem;" onkeyup="calcProfitPreview()">
             </div>
-            
+
             <div style="margin-bottom: 1.5rem;">
-                <label style="color: var(--text-dim); font-size: 0.8rem; text-transform: uppercase;">Precio de Venta</label>
-                <input type="number" id="editVenta" step="0.01" class="input-vibe" style="margin-top: 0.5rem; text-align: left; font-size: 1.5rem;" onkeyup="calcProfitPreview()">
+                <label style="color: var(--text-dim); font-size: 0.8rem; text-transform: uppercase;">Precio de
+                    Venta</label>
+                <input type="number" id="editVenta" step="0.01" class="input-vibe"
+                    style="margin-top: 0.5rem; text-align: left; font-size: 1.5rem;" onkeyup="calcProfitPreview()">
             </div>
 
             <div style="text-align: center; margin-bottom: 2rem;">
@@ -529,6 +559,46 @@
         </div>
     </div>
 
+    <!-- Bottom Sheet Modal Catalog -->
+    <div id="descModal" class="modal-overlay" onclick="if(event.target===this) closeDescModal()">
+        <div class="modal">
+            <div class="modal-pull"></div>
+            <div class="modal-title" id="descModalProdName">Ajustar Descripción</div>
+            <div style="text-align: center; margin-bottom: 1rem;">
+                <span id="descModalProdId" style="font-family: monospace; color: var(--text-dim);">ID</span>
+            </div>
+
+            <div style="margin-bottom: 2rem;">
+                <input type="text" id="editDesc" class="input-vibe" style="font-size: 1.2rem; text-align: left;">
+            </div>
+
+            <div style="display: flex; gap: 1rem;">
+                <button class="btn-action" onclick="closeDescModal()"
+                    style="background: rgba(255,255,255,0.05); color: white; flex: 1;">Cerrar</button>
+                <button class="btn-action btn-save" onclick="saveDescription()" style="flex: 2;">Actualizar</button>
+            </div>
+        </div>
+    </div>
+
+    <nav class="bottom-nav">
+        <div class="nav-item active" id="tab-inventory" onclick="changeTab('inventory')">
+            <span class="nav-icon">📦</span>
+            <span>Inventario</span>
+        </div>
+        <div class="nav-item" id="tab-prices" onclick="changeTab('prices')">
+            <span class="nav-icon">💵</span>
+            <span>Precios</span>
+        </div>
+        <div class="nav-item" id="tab-catalog" onclick="changeTab('catalog')">
+            <span class="nav-icon">📝</span>
+            <span>Catálogo</span>
+        </div>
+        <div class="nav-item" id="tab-sales" onclick="changeTab('sales')">
+            <span class="nav-icon">📊</span>
+            <span>Ventas</span>
+        </div>
+    </nav>
+
     <div id="toast"></div>
 
     <script>
@@ -541,10 +611,16 @@
             currentTab = tab;
             document.getElementById('tab-inventory').classList.toggle('active', tab === 'inventory');
             document.getElementById('tab-prices').classList.toggle('active', tab === 'prices');
-            
+            document.getElementById('tab-catalog').classList.toggle('active', tab === 'catalog');
+            document.getElementById('tab-sales').classList.toggle('active', tab === 'sales');
+
             // Toggle specific UI options if needed
             document.getElementById('filterStock').style.display = tab === 'inventory' ? 'block' : 'none';
             
+            document.getElementById('searchControls').style.display = tab === 'sales' ? 'none' : 'flex';
+            document.getElementById('filterControls').style.display = tab === 'sales' ? 'none' : 'grid';
+            document.getElementById('salesFilters').style.display = tab === 'sales' ? 'grid' : 'none';
+
             document.getElementById('masterSearch').value = '';
             document.getElementById('productsBody').innerHTML = ''; // Limpiar temporalmente
             loadData();
@@ -552,7 +628,27 @@
 
         async function loadData() {
             try {
-                const endpoint = currentTab === 'inventory' ? '/api/inventory' : '/api/prices';
+                if (currentTab === 'sales') {
+                    const timeRange = document.getElementById('filterTime').value;
+                    const groupBy = document.getElementById('filterGroup').value;
+                    const depto = document.getElementById('filterDeptSales').value;
+                    
+                    document.getElementById('productsBody').innerHTML = '<div style="text-align: center; color: var(--text-dim); padding: 2rem;">Cargando ventas...</div>';
+                    
+                    const res = await fetch('/api/sales/report', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ time_range: timeRange, group_by: groupBy, department: depto })
+                    });
+                    const report = await res.json();
+                    renderSalesCards(report, groupBy);
+                    return;
+                }
+
+                let endpoint = '/api/inventory';
+                if (currentTab === 'prices') endpoint = '/api/prices';
+                if (currentTab === 'catalog') endpoint = '/api/catalog';
+
                 const res = await fetch(endpoint);
                 allProducts = await res.json();
                 updateDepts(allProducts);
@@ -565,10 +661,17 @@
         function updateDepts(products) {
             const depts = [...new Set(products.map(p => p.departamento))].sort();
             const select = document.getElementById('filterDept');
+            const selectSales = document.getElementById('filterDeptSales');
+            
             select.innerHTML = '<option value="">Todo el Local</option>';
+            selectSales.innerHTML = '<option value="">Todos los Deptos</option>';
+            
             depts.forEach(d => {
                 const opt = document.createElement('option');
                 opt.value = d; opt.textContent = d; select.appendChild(opt);
+                
+                const optSales = document.createElement('option');
+                optSales.value = d; optSales.textContent = d; selectSales.appendChild(optSales);
             });
         }
 
@@ -578,11 +681,8 @@
             products.forEach(p => {
                 const card = document.createElement('div');
                 card.className = 'product-card';
-                
+
                 const safeDesc = p.descripcion.replace(/'/g, "\\'");
-                
-                let statsHtml = '';
-                let buttonsHtml = '';
 
                 if (currentTab === 'inventory') {
                     statsHtml = `
@@ -591,12 +691,10 @@
                             <div class="val stock">${p.inventario}</div>
                         </div>
                     `;
-                    buttonsHtml = `
-                        <button class="btn-action" onclick="openModal('${p.codigo}', '${safeDesc}', ${p.inventario})" style="width: 100%; padding: 0.8rem; font-size: 1rem; background: rgba(16, 185, 129, 0.15); color: var(--success); border: 1px solid var(--success);">Ajustar Stock</button>
-                    `;
-                } else {
+                    card.onclick = () => openModal(p.codigo, safeDesc, p.inventario);
+                } else if (currentTab === 'prices') {
                     let ganancia = 0;
-                    if (p.p_costo > 0) { ganancia = ((p.precio - p.p_costo) / p.p_costo) * 100; } 
+                    if (p.p_costo > 0) { ganancia = ((p.precio - p.p_costo) / p.p_costo) * 100; }
                     else if (p.precio > 0) { ganancia = 100; }
 
                     statsHtml = `
@@ -609,9 +707,15 @@
                             <div class="val" style="color: #a78bfa;">${ganancia.toFixed(1)}%</div>
                         </div>
                     `;
-                    buttonsHtml = `
-                        <button class="btn-action" onclick="openPriceModal('${p.codigo}', '${safeDesc}', ${p.precio}, ${p.p_costo})" style="width: 100%; padding: 0.8rem; font-size: 1rem; background: rgba(139, 92, 246, 0.15); color: var(--primary); border: 1px solid var(--primary);">Ajustar Precios</button>
+                    card.onclick = () => openPriceModal(p.codigo, safeDesc, p.precio, p.p_costo);
+                } else if (currentTab === 'catalog') {
+                    statsHtml = `
+                        <div class="stat-group" style="width: 100%;">
+                            <div class="label">Descripción</div>
+                            <div class="val" style="font-size: 1rem; white-space: normal;">${p.descripcion}</div>
+                        </div>
                     `;
+                    card.onclick = () => openDescModal(p.codigo, safeDesc);
                 }
 
                 card.innerHTML = `
@@ -624,18 +728,86 @@
                     <div class="card-stats">
                         ${statsHtml}
                     </div>
-                    <div style="margin-top: 0.5rem;">
-                        ${buttonsHtml}
-                    </div>
                 `;
                 container.appendChild(card);
             });
         }
 
+        function renderSalesCards(report, groupBy) {
+            const container = document.getElementById('productsBody');
+            container.innerHTML = '';
+            
+            if (report.length === 0) {
+                container.innerHTML = '<div style="text-align: center; color: var(--text-dim); padding: 2rem;">No hay ventas en este periodo.</div>';
+                return;
+            }
+            
+            let totalGeneral = 0;
+            
+            report.forEach(item => {
+                totalGeneral += item.ingreso;
+                const card = document.createElement('div');
+                card.className = 'product-card';
+                card.style.cursor = 'default';
+                
+                if (groupBy === 'department') {
+                    card.innerHTML = `
+                        <div class="card-header">
+                            <span class="tag-dept" style="font-size: 0.9rem;">${item.nombre}</span>
+                        </div>
+                        <div class="card-stats" style="margin-top: 1rem;">
+                            <div class="stat-group">
+                                <div class="label">Cant. Vendida</div>
+                                <div class="val">${item.cantidad}</div>
+                            </div>
+                            <div class="stat-group" style="text-align: right;">
+                                <div class="label">Ingreso Total</div>
+                                <div class="val" style="color: var(--success);">$${item.ingreso.toFixed(2)}</div>
+                            </div>
+                        </div>
+                    `;
+                } else {
+                    card.innerHTML = `
+                        <div class="card-header">
+                            <span class="tag-dept">${item.departamento}</span>
+                            <div class="card-id">${item.codigo}</div>
+                        </div>
+                        <div class="card-name">${item.nombre}</div>
+                        <div class="card-stats">
+                            <div class="stat-group">
+                                <div class="label">Cant. Vendida</div>
+                                <div class="val">${item.cantidad}</div>
+                            </div>
+                            <div class="stat-group" style="text-align: right;">
+                                <div class="label">Ingreso Total</div>
+                                <div class="val" style="color: var(--success);">$${item.ingreso.toFixed(2)}</div>
+                            </div>
+                        </div>
+                    `;
+                }
+                container.appendChild(card);
+            });
+            
+            // Render Total General Card at the top
+            const summaryCard = document.createElement('div');
+            summaryCard.className = 'product-card';
+            summaryCard.style.background = 'rgba(16, 185, 129, 0.15)';
+            summaryCard.style.border = '1px solid var(--success)';
+            summaryCard.innerHTML = `
+                <div style="text-align: center; color: var(--success); font-weight: 700;">
+                    <div style="font-size: 0.8rem; text-transform: uppercase;">Total Vendido en el Periodo</div>
+                    <div style="font-size: 2rem;">$${totalGeneral.toFixed(2)}</div>
+                </div>
+            `;
+            container.insertBefore(summaryCard, container.firstChild);
+        }
+
         let searchTimeout = null;
 
         async function fetchBackendSearch(searchQuery) {
-            const endpoint = currentTab === 'inventory' ? '/api/inventory/search' : '/api/prices/search';
+            let endpoint = '/api/inventory/search';
+            if (currentTab === 'prices') endpoint = '/api/prices/search';
+            if (currentTab === 'catalog') endpoint = '/api/catalog/search';
             try {
                 const res = await fetch(endpoint, {
                     method: 'POST',
@@ -667,7 +839,7 @@
                     if (stock === 'zero') matchStock = p.inventario <= 0;
                     if (stock === 'low') matchStock = p.inventario > 0 && p.inventario < 10;
                 }
-                
+
                 if (search.length === 0) {
                     const pDesc = p.descripcion.toLowerCase();
                     const pCode = p.codigo.toLowerCase();
@@ -677,7 +849,7 @@
                         (pCode.length > 1 && pCode.substring(1).includes(searchLower));
                     return matchSearch && matchDept && matchStock;
                 }
-                
+
                 return matchDept && matchStock;
             });
             renderMobileCards(filtered);
@@ -819,6 +991,39 @@
             t.style.display = 'block';
             t.style.background = type === 'success' ? '#10b981' : '#ef4444';
             setTimeout(() => t.style.display = 'none', 2500);
+        }
+
+        function openDescModal(id, desc) {
+            currentEditingCode = id;
+            document.getElementById('descModalProdName').textContent = "Editar: " + id;
+            document.getElementById('descModalProdId').textContent = id;
+            document.getElementById('editDesc').value = desc;
+            document.getElementById('descModal').style.display = 'flex';
+        }
+
+        function closeDescModal() { document.getElementById('descModal').style.display = 'none'; }
+
+        async function saveDescription() {
+            const desc = document.getElementById('editDesc').value.trim();
+            if (!desc) {
+                showToast("La descripción no puede estar vacía", "error");
+                return;
+            }
+            try {
+                const res = await fetch('/api/catalog/update', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ codigo: currentEditingCode, descripcion: desc })
+                });
+                if (res.ok) {
+                    showToast("Descripción Actualizada ✅", "success");
+                    closeDescModal();
+                    loadData();
+                } else {
+                    const data = await res.json();
+                    showToast(data.error || "Error al actualizar ❌", "error");
+                }
+            } catch (err) { showToast("Error de red ❌", "error"); }
         }
 
         loadData();

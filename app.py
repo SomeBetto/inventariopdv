@@ -1,7 +1,13 @@
-from flask import Flask, render_template, request, jsonify
+import os
+from flask import Flask, render_template, request, jsonify, send_from_directory
 import db_manager
 
 app = Flask(__name__)
+
+@app.route('/favicon.ico')
+def favicon():
+    return send_from_directory(os.path.join(app.root_path, '.'),
+                               'logo.ico', mimetype='image/vnd.microsoft.icon')
 
 @app.route('/')
 def index():
@@ -64,6 +70,43 @@ def update_prices():
         return jsonify({'message': message})
     else:
         return jsonify({'error': message}), 500
+
+@app.route('/api/catalog')
+def get_catalog():
+    return jsonify(db_manager.get_catalog_all())
+
+@app.route('/api/catalog/search', methods=['POST'])
+def search_catalog():
+    data = request.get_json()
+    query = data.get('query') or data.get('codigo')
+    if not query:
+        return jsonify({'error': 'Parámetro de búsqueda no proporcionado'}), 400
+    return jsonify(db_manager.search_catalog(query))
+
+@app.route('/api/catalog/update', methods=['POST'])
+def update_catalog():
+    data = request.get_json()
+    codigo = data.get('codigo')
+    descripcion = data.get('descripcion')
+    
+    if not codigo or not descripcion:
+        return jsonify({'error': 'Datos incompletos'}), 400
+    
+    success, message = db_manager.update_description(codigo, descripcion)
+    if success:
+        return jsonify({'message': message})
+    else:
+        return jsonify({'error': message}), 500
+
+@app.route('/api/sales/report', methods=['POST'])
+def sales_report():
+    data = request.get_json()
+    time_range = data.get('time_range', 'day')
+    group_by = data.get('group_by', 'product')
+    department = data.get('department')
+    
+    report = db_manager.get_sales_report(time_range, group_by, department)
+    return jsonify(report)
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')
