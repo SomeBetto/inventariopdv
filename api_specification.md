@@ -278,7 +278,34 @@ Permite editar el nombre, dirección, teléfono y límite de crédito de un clie
 
 ---
 
-## 6. Funcionalidades y Consideraciones Generales del Frontend
+
+## 6. Módulo: Sistema (System GET)
+Rutas generales para verificar el estado y obtener información sobre la propia API.
+
+### 6.1. Verificación de Salud (Health Check)
+Verifica si el servidor de la API está en línea y respondiendo.
+
+- **Ruta:** `GET /health`
+- **Uso en el Frontend:**
+  - Puede usarse para verificar conectividad antes de intentar operaciones críticas.
+- **Respuesta Exitosa (200 OK):**
+```json
+{
+  "status": "ok",
+  "api": "active"
+}
+```
+
+### 6.2. Información de la API
+Devuelve el texto completo de esta misma especificación (`api_specification.md`) para consultas dinámicas.
+
+- **Ruta:** `GET /info`
+- **Respuesta Exitosa (200 OK):**
+Texto plano/Markdown con toda la documentación oficial de los endpoints.
+
+---
+
+## 7. Funcionalidades y Consideraciones Generales del Frontend
 
 Para replicar el funcionamiento del frontend original, asegúrate de implementar:
 
