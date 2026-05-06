@@ -13,6 +13,7 @@ Este documento define el contexto, las reglas de arquitectura y las directrices 
   - **Inventario**: Endpoints bajo `/api/inventory`. Solo manejan cantidades, stock (`DINVENTARIO`) y registros en el historial.
   - **Precios**: Endpoints bajo `/api/prices`. Solo manejan costos (`PCOSTO`), precios de venta (`PVENTA`) y ganancias.
   - **Catálogo**: Endpoints bajo `/api/catalog`. Solo manejan datos maestros del producto como la descripción (`DESCRIPCION`) y departamento.
+  - **Clientes**: Endpoints bajo `/api/clients`. Solo manejan la información del perfil del cliente (`NOMBRE`, `DIRECCION`, `TELEFONO`, `LIMITE_CREDITO`) y visualización de su saldo.
   - **Ventas**: Endpoints bajo `/api/sales`. Dedicados al análisis y reportes históricos cruzando datos de tickets.
   - Nunca mezcles la lógica de estos módulos en un solo endpoint.
 
@@ -24,12 +25,12 @@ Este documento define el contexto, las reglas de arquitectura y las directrices 
   - `db_manager.py` debe retornar tuplas de éxito/error `(True/False, "Mensaje")` o arreglos vacíos `[]` en caso de fallo, capturando las excepciones (`try/except`).
   - `app.py` debe manejar correctamente los códigos HTTP (200 para éxito, 400 para errores de cliente/datos incompletos, 500 para errores del servidor/base de datos).
 
-## 4. Instrucción de Auto-Actualización
+## 4. Instrucción de Auto-Actualización OBLIGATORIA
 - Si realizas **cambios significativos** en el proyecto, como:
   1. Agregar, modificar o eliminar endpoints.
   2. Modificar la estructura de respuesta/petición JSON.
   3. Cambiar la arquitectura de módulos o base de datos.
   4. Agregar nuevas tecnologías o dependencias.
-- **DEBES** hacer lo siguiente antes de finalizar tu tarea:
+- **DEBES** hacer lo siguiente de forma **automática y proactiva** antes de finalizar tu tarea y presentarla al usuario:
   - Actualizar `api_specification.md` para reflejar con precisión el nuevo estado de la API.
   - Actualizar este archivo `agent.md` si cambian las reglas generales del sistema o la arquitectura.

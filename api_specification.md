@@ -220,7 +220,65 @@ Rutas dedicadas al análisis y lectura de las ventas procesadas (histórico).
 
 ---
 
-## 5. Funcionalidades y Consideraciones Generales del Frontend
+
+## 5. Módulo: Clientes (Clients POST/GET)
+Rutas dedicadas a la lectura y modificación de los datos y límite de crédito de los clientes registrados.
+
+### 5.1. Obtener todos los clientes
+- **Ruta:** `GET /api/clients/`
+- **Uso en el Frontend:**
+  - Se llama al inicializar la pestaña "Clientes".
+- **Respuesta Exitosa (200 OK):**
+```json
+[
+  {
+    "numero": 33,
+    "nombre": "ALONZO PIEDRA",
+    "direccion": "Calle 1",
+    "telefono": "123456789",
+    "limite_credito": 300.0,
+    "saldo_actual": 0.0
+  }
+]
+```
+
+### 5.2. Buscar Clientes
+Busca clientes por su nombre exacto o parcial.
+
+- **Ruta:** `POST /api/clients/search`
+- **Uso en el Frontend:**
+  - Se conecta a la barra de búsqueda general cuando se está en la pestaña "Clientes".
+- **Body:**
+```json
+{
+  "query": "alonzo"
+}
+```
+
+### 5.3. Actualizar Cliente
+Permite editar el nombre, dirección, teléfono y límite de crédito de un cliente. El saldo actual es de solo lectura y no se modifica por esta vía.
+
+- **Ruta:** `POST /api/clients/update`
+- **Uso en el Frontend:**
+  - Se dispara al guardar los cambios desde el modal de edición de clientes.
+- **Body:**
+```json
+{
+  "numero": 33,
+  "nombre": "ALONZO PIEDRA",
+  "direccion": "Calle 1",
+  "telefono": "123456789",
+  "limite_credito": 400.0
+}
+```
+- **Respuesta Exitosa (200 OK):**
+```json
+{ "message": "Cliente actualizado exitosamente" }
+```
+
+---
+
+## 6. Funcionalidades y Consideraciones Generales del Frontend
 
 Para replicar el funcionamiento del frontend original, asegúrate de implementar:
 

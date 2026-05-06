@@ -19,7 +19,7 @@ if not exist .git (
     git fetch origin >nul
     git reset --hard origin/main >nul
 ) else (
-    :: Intentar traer las novedades
+    REM Intentar traer las novedades
     git fetch origin main >nul 2>&1
     if %errorlevel% equ 0 (
         echo [INFO] Sincronizando con la ultima version de GitHub...
@@ -33,7 +33,7 @@ if not exist .git (
 :: 2. Entorno Virtual (venv)
 :: ==================================================
 if not exist "venv" (
-    echo [INFO] Creando entorno virtual local (32-bit)...
+    echo [INFO] Creando entorno virtual local ^(32-bit^)...
     py -3-32 -m venv venv
 )
 

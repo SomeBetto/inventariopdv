@@ -13,9 +13,13 @@
 
 <body>
 
-    <header>
+    <header style="position: relative;">
         <div class="logo-vibe">Abarrote Quintero</div>
         <p style="color: var(--text-dim); font-size: 0.9rem;">Control total en la palma de tu mano</p>
+        <div id="dateTimeDisplay" style="position: absolute; top: 1rem; right: 1rem; text-align: right; font-size: 0.8rem; color: var(--text-dim); line-height: 1.2;">
+            <div id="currentDate" style="font-weight: 500; text-transform: capitalize;"></div>
+            <div id="currentTime" style="font-family: monospace; font-size: 1rem; margin-top: 2px; color: #a78bfa;"></div>
+        </div>
     </header>
 
     <div class="sticky-controls">
@@ -52,6 +56,16 @@
             </div>
         </div>
         
+        <div id="clientFilters" class="filter-grid" style="display: none;">
+            <div class="filter-item" style="grid-column: span 2;">
+                <select id="sortClients" onchange="multiFilter()">
+                    <option value="name">Ordenar por Nombre</option>
+                    <option value="id">Ordenar por ID</option>
+                    <option value="debt">Mayor Deuda Actual</option>
+                    <option value="limit">Mayor Límite de Crédito</option>
+                </select>
+            </div>
+        </div>
         <div id="salesFilters" class="filter-grid" style="display: none;">
             <div class="filter-item">
                 <select id="filterTime" onchange="loadData()">
@@ -162,6 +176,43 @@
         </div>
     </div>
 
+    <!-- Bottom Sheet Modal Client -->
+    <div id="clientModal" class="modal-overlay" onclick="if(event.target===this) closeClientModal()">
+        <div class="modal">
+            <div class="modal-pull"></div>
+            <div class="modal-title" id="clientModalName">Editar Cliente</div>
+            <div style="text-align: center; margin-bottom: 1rem;">
+                <span id="clientModalId" style="font-family: monospace; color: var(--text-dim);">ID</span>
+            </div>
+
+            <div style="margin-bottom: 1rem;">
+                <label style="color: var(--text-dim); font-size: 0.8rem; text-transform: uppercase;">Nombre</label>
+                <input type="text" id="editClientName" class="input-vibe" style="margin-top: 0.5rem; text-align: left; font-size: 1.1rem;">
+            </div>
+
+            <div style="margin-bottom: 1rem;">
+                <label style="color: var(--text-dim); font-size: 0.8rem; text-transform: uppercase;">Dirección</label>
+                <input type="text" id="editClientAddress" class="input-vibe" style="margin-top: 0.5rem; text-align: left; font-size: 1.1rem;">
+            </div>
+
+            <div style="margin-bottom: 1rem;">
+                <label style="color: var(--text-dim); font-size: 0.8rem; text-transform: uppercase;">Teléfono</label>
+                <input type="text" id="editClientPhone" class="input-vibe" style="margin-top: 0.5rem; text-align: left; font-size: 1.1rem;">
+            </div>
+
+            <div style="margin-bottom: 1.5rem;">
+                <label style="color: var(--text-dim); font-size: 0.8rem; text-transform: uppercase;">Límite de Crédito</label>
+                <input type="number" id="editClientLimit" step="0.01" class="input-vibe" style="margin-top: 0.5rem; text-align: left; font-size: 1.3rem;">
+            </div>
+
+            <div style="display: flex; gap: 1rem;">
+                <button class="btn-action" onclick="closeClientModal()"
+                    style="background: rgba(255,255,255,0.05); color: white; flex: 1;">Cerrar</button>
+                <button class="btn-action btn-save" onclick="saveClient()" style="flex: 2;">Actualizar</button>
+            </div>
+        </div>
+    </div>
+
     <nav class="bottom-nav">
         <div class="nav-item active" id="tab-inventory" onclick="changeTab('inventory')">
             <span class="nav-icon">📦</span>
@@ -174,6 +225,10 @@
         <div class="nav-item" id="tab-catalog" onclick="changeTab('catalog')">
             <span class="nav-icon">📝</span>
             <span>Catálogo</span>
+        </div>
+        <div class="nav-item" id="tab-clients" onclick="changeTab('clients')">
+            <span class="nav-icon">👥</span>
+            <span>Clientes</span>
         </div>
         <div class="nav-item" id="tab-sales" onclick="changeTab('sales')">
             <span class="nav-icon">📊</span>

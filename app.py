@@ -5,6 +5,7 @@ from routes.inventory import inventory_bp
 from routes.prices import prices_bp
 from routes.catalog import catalog_bp
 from routes.sales import sales_bp
+from routes.clients import clients_bp
 
 app = Flask(__name__)
 
@@ -13,6 +14,7 @@ app.register_blueprint(inventory_bp, url_prefix='/api/inventory')
 app.register_blueprint(prices_bp, url_prefix='/api/prices')
 app.register_blueprint(catalog_bp, url_prefix='/api/catalog')
 app.register_blueprint(sales_bp, url_prefix='/api/sales')
+app.register_blueprint(clients_bp, url_prefix='/api/clients')
 
 @app.route('/favicon.ico')
 def favicon():

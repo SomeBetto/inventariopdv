@@ -345,3 +345,69 @@ def get_sales_report(time_range, group_by, depto_filter=None):
     except Exception as e:
         print(f"Error en get_sales_report: {e}")
         return []
+
+
+def search_clients(query):
+    try:
+        with get_connection() as con:
+            cur = con.cursor()
+            query_sql = """
+                SELECT NUMERO, NOMBRE, DIRECCION, TELEFONO, LIMITE_CREDITO, DSALDOACTUAL 
+                FROM CLIENTES 
+                WHERE CAST(NUMERO AS VARCHAR(10)) CONTAINING ? OR NOMBRE CONTAINING ?
+                ORDER BY NOMBRE
+            """
+            cur.execute(query_sql, (query, query))
+            
+            rows = cur.fetchall()
+            return [{
+                'numero': row[0],
+                'nombre': row[1].strip() if row[1] else '',
+                'direccion': row[2].strip() if row[2] else '',
+                'telefono': row[3].strip() if row[3] else '',
+                'limite_credito': float(row[4]) if row[4] is not None else 0.0,
+                'saldo_actual': float(row[5]) if row[5] is not None else 0.0
+            } for row in rows]
+    except Exception as e:
+        print(f"Error en search_clients: {e}")
+        return []
+
+def get_clients_all():
+    try:
+        with get_connection() as con:
+            cur = con.cursor()
+            cur.execute("""
+                SELECT NUMERO, NOMBRE, DIRECCION, TELEFONO, LIMITE_CREDITO, DSALDOACTUAL 
+                FROM CLIENTES 
+                ORDER BY NOMBRE
+            """)
+            return [{
+                'numero': row[0],
+                'nombre': row[1].strip() if row[1] else '',
+                'direccion': row[2].strip() if row[2] else '',
+                'telefono': row[3].strip() if row[3] else '',
+                'limite_credito': float(row[4]) if row[4] is not None else 0.0,
+                'saldo_actual': float(row[5]) if row[5] is not None else 0.0
+            } for row in cur.fetchall()]
+    except Exception as e:
+        print(f"Error en get_clients_all: {e}")
+        return []
+
+def update_client(numero, nombre, direccion, telefono, limite_credito):
+    try:
+        with get_connection() as con:
+            cur = con.cursor()
+            cur.execute("SELECT NUMERO FROM CLIENTES WHERE NUMERO = ?", (numero,))
+            if not cur.fetchone():
+                return False, "Cliente no encontrado"
+            
+            cur.execute("""
+                UPDATE CLIENTES 
+                SET NOMBRE = ?, DIRECCION = ?, TELEFONO = ?, LIMITE_CREDITO = ? 
+                WHERE NUMERO = ?
+            """, (nombre, direccion, telefono, limite_credito, numero))
+            con.commit()
+            return True, "Cliente actualizado exitosamente"
+    except Exception as e:
+        print(f"Error actualizando cliente {numero}: {e}")
+        return False, str(e)

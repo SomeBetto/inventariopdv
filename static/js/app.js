@@ -9,13 +9,16 @@ function changeTab(tab) {
     document.getElementById('tab-prices').classList.toggle('active', tab === 'prices');
     document.getElementById('tab-catalog').classList.toggle('active', tab === 'catalog');
     document.getElementById('tab-sales').classList.toggle('active', tab === 'sales');
+    document.getElementById('tab-clients').classList.toggle('active', tab === 'clients');
 
     // Toggle specific UI options if needed
     document.getElementById('filterStock').style.display = tab === 'inventory' ? 'block' : 'none';
     
     document.getElementById('searchControls').style.display = tab === 'sales' ? 'none' : 'flex';
-    document.getElementById('filterControls').style.display = tab === 'sales' ? 'none' : 'grid';
+    document.getElementById('filterControls').style.display = (tab === 'sales' || tab === 'clients') ? 'none' : 'grid';
     document.getElementById('salesFilters').style.display = tab === 'sales' ? 'grid' : 'none';
+    const clientF = document.getElementById('clientFilters');
+    if(clientF) clientF.style.display = tab === 'clients' ? 'grid' : 'none';
 
     document.getElementById('masterSearch').value = '';
     document.getElementById('productsBody').innerHTML = ''; // Limpiar temporalmente
@@ -44,6 +47,7 @@ async function loadData() {
         let endpoint = '/api/inventory';
         if (currentTab === 'prices') endpoint = '/api/prices';
         if (currentTab === 'catalog') endpoint = '/api/catalog';
+        if (currentTab === 'clients') endpoint = '/api/clients';
 
         const res = await fetch(endpoint);
         allProducts = await res.json();
@@ -78,7 +82,7 @@ function renderMobileCards(products) {
         const card = document.createElement('div');
         card.className = 'product-card';
 
-        const safeDesc = p.descripcion.replace(/'/g, "\\'");
+        const safeDesc = (p.descripcion || p.nombre || '').replace(/'/g, "\\'");
 
         let statsHtml = '';
 
@@ -106,6 +110,18 @@ function renderMobileCards(products) {
                 </div>
             `;
             card.onclick = () => openPriceModal(p.codigo, safeDesc, p.precio, p.p_costo);
+                } else if (currentTab === 'clients') {
+            statsHtml = `
+                <div class="stat-group">
+                    <div class="label">Teléfono</div>
+                    <div class="val">${p.telefono || '-'}</div>
+                </div>
+                <div class="stat-group" style="text-align: right;">
+                    <div class="label">Saldo Actual</div>
+                    <div class="val" style="color: ${p.saldo_actual > 0 ? 'var(--error)' : 'var(--success)'};">$${p.saldo_actual.toFixed(2)}</div>
+                </div>
+            `;
+            card.onclick = () => openClientModal(p.numero, safeDesc, p.direccion, p.telefono, p.limite_credito);
         } else if (currentTab === 'catalog') {
             statsHtml = `
                 <div class="stat-group" style="width: 100%;">
@@ -119,10 +135,10 @@ function renderMobileCards(products) {
         card.innerHTML = `
             <div class="card-glow"></div>
             <div class="card-header">
-                <span class="tag-dept">${p.departamento}</span>
-                <div class="card-id">${p.codigo}</div>
+                <span class="tag-dept">${p.departamento || 'Cliente'}</span>
+                <div class="card-id">${p.codigo || p.numero}</div>
             </div>
-            <div class="card-name">${p.descripcion}</div>
+            <div class="card-name">${p.descripcion || p.nombre}</div>
             <div class="card-stats">
                 ${statsHtml}
             </div>
@@ -206,6 +222,7 @@ async function fetchBackendSearch(searchQuery) {
     let endpoint = '/api/inventory/search';
     if (currentTab === 'prices') endpoint = '/api/prices/search';
     if (currentTab === 'catalog') endpoint = '/api/catalog/search';
+    if (currentTab === 'clients') endpoint = '/api/clients/search';
     try {
         const res = await fetch(endpoint, {
             method: 'POST',
@@ -239,8 +256,8 @@ async function doFilter() {
         }
 
         if (search.length === 0) {
-            const pDesc = p.descripcion.toLowerCase();
-            const pCode = p.codigo.toLowerCase();
+            const pDesc = (p.descripcion || p.nombre || '').toLowerCase();
+            const pCode = String(p.codigo || p.numero || '').toLowerCase();
             const searchLower = search.toLowerCase();
             const matchSearch = pDesc.includes(searchLower) ||
                 pCode.includes(searchLower) ||
@@ -250,7 +267,24 @@ async function doFilter() {
 
         return matchDept && matchStock;
     });
+
+    if (currentTab === 'clients') {
+        const sortClientObj = document.getElementById('sortClients');
+        if (sortClientObj) {
+            const sortVal = sortClientObj.value;
+            if (sortVal === 'id') {
+                filtered.sort((a, b) => a.numero - b.numero);
+            } else if (sortVal === 'debt') {
+                filtered.sort((a, b) => (b.saldo_actual || 0) - (a.saldo_actual || 0));
+            } else if (sortVal === 'limit') {
+                filtered.sort((a, b) => (b.limite_credito || 0) - (a.limite_credito || 0));
+            } else {
+                filtered.sort((a, b) => (a.nombre || '').localeCompare(b.nombre || ''));
+            }
+        }
+    }
     renderMobileCards(filtered);
+
 }
 
 function multiFilter(event) {
@@ -425,3 +459,67 @@ async function saveDescription() {
 }
 
 window.onload = loadData;
+
+
+function openClientModal(numero, nombre, direccion, telefono, limite_credito) {
+    currentEditingCode = numero;
+    document.getElementById('clientModalName').textContent = "Editar: " + nombre;
+    document.getElementById('clientModalId').textContent = "ID: " + numero;
+    
+    document.getElementById('editClientName').value = nombre;
+    document.getElementById('editClientAddress').value = direccion || '';
+    document.getElementById('editClientPhone').value = telefono || '';
+    document.getElementById('editClientLimit').value = (limite_credito || 0).toFixed(2);
+    
+    document.getElementById('clientModal').style.display = 'flex';
+}
+
+function closeClientModal() { document.getElementById('clientModal').style.display = 'none'; }
+
+async function saveClient() {
+    const nombre = document.getElementById('editClientName').value.trim();
+    const direccion = document.getElementById('editClientAddress').value.trim();
+    const telefono = document.getElementById('editClientPhone').value.trim();
+    const limite = parseFloat(document.getElementById('editClientLimit').value) || 0;
+    
+    if (!nombre) {
+        showToast("El nombre es requerido", "error");
+        return;
+    }
+    try {
+        const res = await fetch('/api/clients/update', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ 
+                numero: currentEditingCode, 
+                nombre: nombre,
+                direccion: direccion,
+                telefono: telefono,
+                limite_credito: limite
+            })
+        });
+        if (res.ok) {
+            showToast("Cliente Actualizado ✅", "success");
+            closeClientModal();
+            loadData();
+        } else {
+            const data = await res.json();
+            showToast(data.error || "Error al actualizar ❌", "error");
+        }
+    } catch (err) { showToast("Error de red ❌", "error"); }
+}
+
+
+// Clock Logic
+function updateDateTime() {
+    const now = new Date();
+    const dateOpts = { weekday: 'short', day: '2-digit', month: 'short' };
+    const dateEl = document.getElementById('currentDate');
+    const timeEl = document.getElementById('currentTime');
+    if (dateEl && timeEl) {
+        dateEl.textContent = now.toLocaleDateString('es-MX', dateOpts);
+        timeEl.textContent = now.toLocaleTimeString('es-MX', { hour: '2-digit', minute: '2-digit' });
+    }
+}
+setInterval(updateDateTime, 1000);
+updateDateTime();
