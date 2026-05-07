@@ -397,3 +397,36 @@ Para replicar la aplicación en otras tecnologías (React, Flutter, etc.), consi
 *   **Protección 401**: El frontend debe tener un interceptor que, al recibir un error 401 del backend, oculte inmediatamente la aplicación y muestre el Login Overlay.
 *   **Filtros Híbridos**: El servidor busca por texto, pero el frontend aplica los filtros secundarios sobre la lista ya descargada para mayor velocidad.
 
+---
+
+## 10. Identidad Visual y Design Tokens
+
+Para asegurar la consistencia estética en cualquier implementación nueva, se deben seguir estos lineamientos gráficos:
+
+### 10.1. Paleta de Colores (Dark Theme)
+*   **Fondo (Background)**: `#030712` (Negro profundo).
+*   **Primario (Violeta)**: `#8b5cf6` (Usado para acentos, botones principales y navegación activa).
+*   **Éxito (Esmeralda)**: `#10b981` (Usado para precios, stock positivo y confirmaciones).
+*   **Error (Rojo)**: `#ef4444` (Usado para stock agotado y alertas).
+*   **Texto Principal**: `#f3f4f6` (Blanco grisáceo).
+*   **Texto Secundario**: `#9ca3af` (Gris tenue).
+*   **Bordes**: `rgba(255, 255, 255, 0.08)` (Casi invisibles pero definen la estructura).
+
+### 10.2. Efectos y Estilos
+*   **Glassmorphism**: 
+    *   Fondo de tarjetas: `rgba(31, 41, 55, 0.6)`.
+    *   Efecto de desenfoque: `backdrop-filter: blur(12px)`.
+*   **Gradientes**:
+    *   La aplicación utiliza gradientes radiales en las esquinas del body (Violeta al 15% arriba a la izquierda, Verde al 10% abajo a la derecha) para dar profundidad.
+*   **Tipografía**: 
+    *   Fuente Principal: **'Outfit'** (Sans-serif). Si no está disponible, usar 'Inter' o 'Roboto'.
+    *   Pesos: 400 (Regular), 600 (Semi-bold), 800 (Extra-bold para el Logo).
+*   **Bordes Redondeados (Border Radius)**:
+    *   Tarjetas y Modales: `24px`.
+    *   Inputs y Botones pequeños: `16px`.
+
+### 10.3. Animaciones Sugeridas
+*   **Fade In**: Entrada suave de las tarjetas al cargar.
+*   **Slide Up**: Los modales (Bottom Sheets) deben emerger desde abajo con una curva de tiempo `cubic-bezier(0.16, 1, 0.3, 1)`.
+*   **Scale**: Ligera reducción de tamaño (`scale(0.98)`) al presionar botones o tarjetas para dar feedback táctil.
+
