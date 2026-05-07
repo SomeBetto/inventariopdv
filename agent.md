@@ -15,6 +15,8 @@ Este documento define el contexto, las reglas de arquitectura y las directrices 
   - **Catálogo**: Endpoints bajo `/api/catalog`. Solo manejan datos maestros del producto como la descripción (`DESCRIPCION`) y departamento.
   - **Clientes**: Endpoints bajo `/api/clients`. Solo manejan la información del perfil del cliente (`NOMBRE`, `DIRECCION`, `TELEFONO`, `LIMITE_CREDITO`) y visualización de su saldo.
   - **Ventas**: Endpoints bajo `/api/sales`. Dedicados al análisis y reportes históricos cruzando datos de tickets.
+  - **Autenticación**: Endpoints bajo `/api/auth`. Gestionan sesiones de usuario contra la tabla `USUARIOS`.
+  - **Administración**: Endpoints bajo `/api/admin`. Exclusivos para usuarios con control total; gestionan el alta y permisos de otros usuarios.
   - Nunca mezcles la lógica de estos módulos en un solo endpoint.
 
 ## 3. Reglas de Código

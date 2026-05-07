@@ -305,11 +305,95 @@ Texto plano/Markdown con toda la documentación oficial de los endpoints.
 
 ---
 
-## 7. Funcionalidades y Consideraciones Generales del Frontend
+## 7. Módulo: Autenticación (Auth)
+Gestiona el acceso de usuarios basado en la tabla `USUARIOS` del sistema original.
 
-Para replicar el funcionamiento del frontend original, asegúrate de implementar:
+### 7.1. Iniciar Sesión
+- **Ruta:** `POST /api/auth/login`
+- **Petición (JSON):**
+```json
+{
+  "username": "admin",
+  "password": "PIN"
+}
+```
+- **Respuesta (200 OK):**
+```json
+{
+  "status": "success",
+  "user": {
+    "id": 7,
+    "nombre": "Nombre Usuario",
+    "is_admin": true,
+    "permisos": ""
+  }
+}
+```
 
-1. **Estado Compartido y Pestañas:**  La UI está segmentada en tres contextos principales (Inventario, Precios, Catálogo). Dependiendo de cuál esté activo, varían los endpoints a consumir y la tarjeta gráfica.
-2. **Filtrado Múltiple Híbrido:** El backend procesa las búsquedas por texto (`coca`, `1234`), pero el frontend se hace cargo del filtrado por categorías (ej. departamento="Lácteos") y por umbrales visuales de negocio (ej. "Sin Stock" o "Bajo Stock"). 
-3. **Manejo de Errores y Loading:** En cada petición al backend se debe prevenir el spam de clicks mediante estados de "cargando". Además, cualquier código `400` o `500` debe ser atrapado para mostrar alertas al usuario ("Toast").
-4. **CORS:** Actualmente la API opera dentro de una Red Local y no expone métodos de autenticación explícitos. Si el *"nuevo front"* será una app que no comparta el origen de puerto y dominio del servidor (ej. React corriendo en el puerto `3000`), será necesario habilitar `flask-cors` en `app.py`.
+### 7.2. Verificar Sesión
+- **Ruta:** `GET /api/auth/check`
+- **Respuesta (200 OK):**
+```json
+{
+  "logged_in": true,
+  "user_name": "Nombre",
+  "is_admin": true
+}
+```
+
+---
+
+## 8. Módulo: Administración (Admin)
+Solo accesible para usuarios con `is_admin: true`.
+
+### 8.1. Listar Usuarios
+- **Ruta:** `GET /api/admin/users`
+- **Respuesta (200 OK):** Lista de objetos con ID, nombre, usuario, activo y permisos.
+
+### 8.2. Guardar/Editar Usuario
+- **Ruta:** `POST /api/admin/users/save`
+- **Petición (JSON):**
+```json
+{
+  "id": 7,
+  "nombre": "Nuevo Nombre",
+  "usuario": "user",
+  "clave": "123",
+  "activo": true,
+  "permisos": "ventas.cobrar,clientes.acceso"
+}
+```
+
+---
+
+## 9. Distribución Visual y Experiencia de Usuario (UI/UX)
+
+Para replicar la aplicación en otras tecnologías (React, Flutter, etc.), considere la siguiente arquitectura visual:
+
+### 9.1. Estructura de la Pantalla
+1.  **Header (Encabezado)**:
+    *   **Izquierda**: Icono de Configuración (solo para Admins). Abre un panel de gestión de usuarios.
+    *   **Centro**: Logo y nombre del negocio.
+    *   **Derecha**: Reloj dinámico y fecha actual.
+2.  **Cuerpo Principal**:
+    *   **Barra de Búsqueda**: Pill-shaped input con botón de escáner QR/Barcode a la derecha.
+    *   **Filtros Rápidos**: Grid de 2 columnas para filtrar por "Departamento" y "Estado" (Bajo stock, etc.).
+    *   **Feed de Tarjetas**: Lista vertical de tarjetas con diseño "Glassmorphism". Cada tarjeta muestra:
+        *   Tag de departamento (arriba a la izquierda).
+        *   Nombre del producto en negrita.
+        *   ID/Código en monoespacio.
+        *   Contenedor de estadísticas (Stock y Precio) con colores contrastantes.
+3.  **Navegación Inferior (Bottom Nav)**:
+    *   Barra fija con desenfoque de fondo.
+    *   4 Iconos principales: **Inventario**, **Precios**, **Clientes**, **Ventas**.
+    *   Feedback visual al seleccionar (color morado vibrante).
+
+### 9.2. Componentes Especiales
+*   **Login Overlay**: Capa de pantalla completa con desenfoque extremo del fondo. Solicita usuario y contraseña de forma minimalista.
+*   **Bottom Sheets**: Los formularios de edición (ajustar stock, editar precio, editar cliente) se deslizan desde la parte inferior de la pantalla para mantener el contexto del pulgar en móviles.
+*   **Toasts**: Notificaciones flotantes en la parte superior para confirmar acciones exitosas o errores de red.
+
+### 9.3. Consideraciones Técnicas
+*   **Protección 401**: El frontend debe tener un interceptor que, al recibir un error 401 del backend, oculte inmediatamente la aplicación y muestre el Login Overlay.
+*   **Filtros Híbridos**: El servidor busca por texto, pero el frontend aplica los filtros secundarios sobre la lista ya descargada para mayor velocidad.
+
