@@ -12,14 +12,40 @@
 </head>
 
 <body>
+    <!-- Login Overlay -->
+    <div id="loginOverlay" class="login-overlay">
+        <div class="login-box">
+            <div class="logo-vibe">Abarrote Quintero</div>
+            <p style="color: var(--text-dim); margin-bottom: 2rem;">Acceso al Sistema</p>
+            <div style="width: 100%; margin-bottom: 1rem;">
+                <input type="text" id="loginUser" class="input-vibe" placeholder="Usuario" style="text-align: left; padding: 1rem;">
+            </div>
+            <div style="width: 100%; margin-bottom: 2rem;">
+                <input type="password" id="loginPass" class="input-vibe" placeholder="Contraseña" style="text-align: left; padding: 1rem;">
+            </div>
+            <button class="btn-action btn-save" onclick="login()" style="width: 100%; font-size: 1.1rem; padding: 1rem;">Entrar al Sistema</button>
+            <div id="loginError" style="color: var(--error); margin-top: 1rem; display: none; font-size: 0.9rem;"></div>
+        </div>
+    </div>
+
 
     <header style="position: relative;">
+        <!-- Settings Icon (Admin Only) -->
+        <button id="adminSettingsBtn" onclick="openSettingsModal()" style="display: none; position: absolute; top: 1rem; left: 1rem; background: rgba(139, 92, 246, 0.1); color: var(--primary); border: 1px solid var(--primary-glow); padding: 0.5rem; border-radius: 12px; cursor: pointer; transition: all 0.2s; z-index: 1000;">
+            <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="12" cy="12" r="3"></circle>
+                <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+            </svg>
+        </button>
         <div class="logo-vibe">Abarrote Quintero</div>
         <p style="color: var(--text-dim); font-size: 0.9rem;">Control total en la palma de tu mano</p>
         <div id="dateTimeDisplay" style="position: absolute; top: 1rem; right: 1rem; text-align: right; font-size: 0.8rem; color: var(--text-dim); line-height: 1.2;">
             <div id="currentDate" style="font-weight: 500; text-transform: capitalize;"></div>
             <div id="currentTime" style="font-family: monospace; font-size: 1rem; margin-top: 2px; color: #a78bfa;"></div>
         </div>
+        <button onclick="logout()" style="position: absolute; bottom: -0.5rem; right: 1rem; background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); padding: 0.3rem 0.6rem; border-radius: 6px; font-size: 0.7rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px;">
+            <span style="font-size: 1rem;">×</span> Cerrar Sesión
+        </button>
     </header>
 
     <div class="sticky-controls">
@@ -210,6 +236,70 @@
                     style="background: rgba(255,255,255,0.05); color: white; flex: 1;">Cerrar</button>
                 <button class="btn-action btn-save" onclick="saveClient()" style="flex: 2;">Actualizar</button>
             </div>
+        </div>
+    </div>
+
+    <!-- Admin Settings Modal -->
+    <div id="settingsModal" class="modal-overlay" onclick="if(event.target===this) closeSettingsModal()">
+        <div class="modal" style="border-radius: 0; height: 100vh; overflow-y: auto;">
+            <div class="modal-pull"></div>
+            <div class="modal-title">Configuración de Usuarios</div>
+            
+            <div id="usersListSection">
+                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <h3 style="font-size: 1.1rem; color: var(--text-dim);">Usuarios Registrados</h3>
+                    <button class="btn-scan" onclick="showUserForm()" style="width: auto; padding: 0.5rem 1rem; font-size: 0.8rem;">+ Nuevo Usuario</button>
+                </div>
+                <div id="usersTableContainer" style="background: rgba(0,0,0,0.2); border-radius: 16px; overflow: hidden; margin-bottom: 2rem;">
+                    <!-- Table populated via JS -->
+                </div>
+            </div>
+
+            <div id="userFormSection" style="display: none;">
+                <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 1.5rem;">
+                    <button onclick="hideUserForm()" style="background: none; border: none; color: var(--text-dim); cursor: pointer; font-size: 1.5rem;">←</button>
+                    <h3 id="userFormTitle" style="font-size: 1.3rem;">Nuevo Usuario</h3>
+                </div>
+                
+                <input type="hidden" id="adminUserId">
+                <div style="margin-bottom: 1rem;">
+                    <label class="label">Nombre Completo</label>
+                    <input type="text" id="adminUserFullname" class="input-vibe" style="font-size: 1.1rem; text-align: left; padding: 0.8rem;">
+                </div>
+                <div style="margin-bottom: 1rem;">
+                    <label class="label">Nombre de Usuario</label>
+                    <input type="text" id="adminUsername" class="input-vibe" style="font-size: 1.1rem; text-align: left; padding: 0.8rem;">
+                </div>
+                <div style="margin-bottom: 1rem;">
+                    <label class="label">Contraseña (PIN)</label>
+                    <input type="text" id="adminUserPass" class="input-vibe" style="font-size: 1.1rem; text-align: left; padding: 0.8rem;">
+                </div>
+                
+                <div style="margin-bottom: 1.5rem;">
+                    <label class="label">Permisos Específicos</label>
+                    <div id="permissionsGrid" style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem; margin-top: 0.5rem;">
+                        <label class="perm-item"><input type="checkbox" value="ventas.buscar"> Buscar Art.</label>
+                        <label class="perm-item"><input type="checkbox" value="ventas.cobrar"> Cobrar</label>
+                        <label class="perm-item"><input type="checkbox" value="ventas.eliminar"> Eliminar Art.</label>
+                        <label class="perm-item"><input type="checkbox" value="ventas.historial"> Ver Historial</label>
+                        <label class="perm-item"><input type="checkbox" value="clientes.acceso"> Clientes</label>
+                        <label class="perm-item"><input type="checkbox" value="inventario.ajustar"> Ajustar Stock</label>
+                        <label class="perm-item"><input type="checkbox" value="precios.ajustar"> Ajustar Precios</label>
+                        <label class="perm-item"><input type="checkbox" value="catalog.ajustar"> Editar Catálogo</label>
+                    </div>
+                    <p style="font-size: 0.7rem; color: var(--text-dim); margin-top: 0.5rem;">* Deje vacío para dar Control Total (Administrador).</p>
+                </div>
+
+                <div style="display: flex; align-items: center; gap: 1rem; margin-bottom: 2rem;">
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer;">
+                        <input type="checkbox" id="adminUserActive" checked> Usuario Activo
+                    </label>
+                </div>
+
+                <button class="btn-action btn-save" onclick="saveAdminUser()">Guardar Usuario</button>
+            </div>
+
+            <button class="btn-action" onclick="closeSettingsModal()" style="background: rgba(255,255,255,0.05); margin-top: 1rem;">Cerrar Configuración</button>
         </div>
     </div>
 

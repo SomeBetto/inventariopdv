@@ -50,6 +50,10 @@ async function loadData() {
         if (currentTab === 'clients') endpoint = '/api/clients';
 
         const res = await fetch(endpoint);
+        if (res.status === 401) {
+            document.getElementById('loginOverlay').style.display = 'flex';
+            return;
+        }
         allProducts = await res.json();
         updateDepts(allProducts);
         multiFilter(); // instead of renderMobileCards so filters apply immediately
@@ -229,6 +233,10 @@ async function fetchBackendSearch(searchQuery) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ query: searchQuery })
         });
+        if (res.status === 401) {
+            document.getElementById('loginOverlay').style.display = 'flex';
+            return [];
+        }
         return await res.json();
     } catch (err) {
         console.error("Error backend search:", err);
@@ -523,3 +531,199 @@ function updateDateTime() {
 }
 setInterval(updateDateTime, 1000);
 updateDateTime();
+
+// Auth Logic
+async function login() {
+    const user = document.getElementById('loginUser').value;
+    const pass = document.getElementById('loginPass').value;
+    const errorEl = document.getElementById('loginError');
+    
+    if (!user || !pass) {
+        errorEl.textContent = "Ingresa usuario y contraseña";
+        errorEl.style.display = 'block';
+        return;
+    }
+    
+    try {
+        const res = await fetch('/api/auth/login', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ username: user, password: pass })
+        });
+        
+        const data = await res.json();
+        if (res.ok) {
+            document.getElementById('loginOverlay').style.display = 'none';
+            document.getElementById('adminSettingsBtn').style.display = data.user.is_admin ? 'block' : 'none';
+            document.getElementById('loginPass').value = '';
+            errorEl.style.display = 'none';
+            showToast("Bienvenido ✅", "success");
+            loadData();
+        } else {
+            errorEl.textContent = data.message || "Error de autenticación";
+            errorEl.style.display = 'block';
+        }
+    } catch (err) {
+        errorEl.textContent = "Error de conexión";
+        errorEl.style.display = 'block';
+    }
+}
+
+async function logout() {
+    try {
+        await fetch('/api/auth/logout', { method: 'POST' });
+        location.reload();
+    } catch (err) {
+        location.reload();
+    }
+}
+
+async function checkAuth() {
+    try {
+        const res = await fetch('/api/auth/check');
+        const data = await res.json();
+        if (res.ok && data.logged_in) {
+            document.getElementById('loginOverlay').style.display = 'none';
+            document.getElementById('adminSettingsBtn').style.display = data.is_admin ? 'block' : 'none';
+            loadData();
+        } else {
+            document.getElementById('loginOverlay').style.display = 'flex';
+        }
+    } catch (err) {
+        document.getElementById('loginOverlay').style.display = 'flex';
+    }
+}
+
+window.onload = checkAuth;
+
+// Admin User Management Logic
+function openSettingsModal() {
+    document.getElementById('settingsModal').style.display = 'flex';
+    loadUsers();
+}
+
+function closeSettingsModal() {
+    document.getElementById('settingsModal').style.display = 'none';
+    hideUserForm();
+}
+
+async function loadUsers() {
+    const container = document.getElementById('usersTableContainer');
+    container.innerHTML = '<div style="padding: 2rem; text-align: center; color: var(--text-dim);">Cargando usuarios...</div>';
+    
+    try {
+        const res = await fetch('/api/admin/users');
+        if (!res.ok) throw new Error("No autorizado");
+        const users = await res.json();
+        
+        let html = `
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.9rem;">
+                <thead>
+                    <tr style="background: rgba(255,255,255,0.05); color: var(--text-dim); text-align: left;">
+                        <th style="padding: 0.8rem;">Nombre / Usuario</th>
+                        <th style="padding: 0.8rem; text-align: center;">Estado</th>
+                        <th style="padding: 0.8rem; text-align: right;">Acción</th>
+                    </tr>
+                </thead>
+                <tbody>
+        `;
+        
+        users.forEach(u => {
+            html += `
+                <tr style="border-bottom: 1px solid var(--border);">
+                    <td style="padding: 1rem;">
+                        <div style="font-weight: 700;">${u.nombre}</div>
+                        <div style="font-size: 0.75rem; color: var(--text-dim);">@${u.usuario}</div>
+                    </td>
+                    <td style="padding: 1rem; text-align: center;">
+                        <span style="color: ${u.activo ? 'var(--success)' : 'var(--error)'}; font-size: 0.7rem; font-weight: 800;">
+                            ${u.activo ? 'ACTIVO' : 'INACTIVO'}
+                        </span>
+                    </td>
+                    <td style="padding: 1rem; text-align: right;">
+                        <button onclick='editUser(${JSON.stringify(u)})' style="background: var(--surface-accent); border: none; color: white; padding: 0.4rem 0.8rem; border-radius: 8px; font-size: 0.75rem; cursor: pointer;">Editar</button>
+                    </td>
+                </tr>
+            `;
+        });
+        
+        html += '</tbody></table>';
+        container.innerHTML = html;
+    } catch (err) {
+        container.innerHTML = '<div style="padding: 2rem; text-align: center; color: var(--error);">Error al cargar usuarios.</div>';
+    }
+}
+
+function showUserForm() {
+    document.getElementById('usersListSection').style.display = 'none';
+    document.getElementById('userFormSection').style.display = 'block';
+    document.getElementById('userFormTitle').textContent = "Nuevo Usuario";
+    
+    // Clear form
+    document.getElementById('adminUserId').value = '';
+    document.getElementById('adminUserFullname').value = '';
+    document.getElementById('adminUsername').value = '';
+    document.getElementById('adminUserPass').value = '';
+    document.getElementById('adminUserActive').checked = true;
+    
+    const checks = document.querySelectorAll('#permissionsGrid input[type="checkbox"]');
+    checks.forEach(c => c.checked = false);
+}
+
+function hideUserForm() {
+    document.getElementById('usersListSection').style.display = 'block';
+    document.getElementById('userFormSection').style.display = 'none';
+}
+
+function editUser(user) {
+    showUserForm();
+    document.getElementById('userFormTitle').textContent = "Editar Usuario";
+    
+    document.getElementById('adminUserId').value = user.id;
+    document.getElementById('adminUserFullname').value = user.nombre;
+    document.getElementById('adminUsername').value = user.usuario;
+    document.getElementById('adminUserPass').value = user.clave;
+    document.getElementById('adminUserActive').checked = user.activo;
+    
+    const perms = user.permisos ? user.permisos.split(',') : [];
+    const checks = document.querySelectorAll('#permissionsGrid input[type="checkbox"]');
+    checks.forEach(c => {
+        c.checked = perms.includes(c.value);
+    });
+}
+
+async function saveAdminUser() {
+    const id = document.getElementById('adminUserId').value;
+    const nombre = document.getElementById('adminUserFullname').value.trim();
+    const usuario = document.getElementById('adminUsername').value.trim();
+    const clave = document.getElementById('adminUserPass').value.trim();
+    const activo = document.getElementById('adminUserActive').checked;
+    
+    if (!nombre || !usuario || !clave) {
+        showToast("Complete todos los campos ⚠️", "error");
+        return;
+    }
+    
+    const checks = document.querySelectorAll('#permissionsGrid input[type="checkbox"]:checked');
+    const permisos = Array.from(checks).map(c => c.value).join(',');
+    
+    const userData = { id, nombre, usuario, clave, activo, permisos };
+    
+    try {
+        const res = await fetch('/api/admin/users/save', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(userData)
+        });
+        
+        if (res.ok) {
+            showToast("Usuario guardado ✅", "success");
+            hideUserForm();
+            loadUsers();
+        } else {
+            showToast("Error al guardar ❌", "error");
+        }
+    } catch (err) {
+        showToast("Error de conexión ❌", "error");
+    }
+}

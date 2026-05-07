@@ -411,3 +411,98 @@ def update_client(numero, nombre, direccion, telefono, limite_credito):
     except Exception as e:
         print(f"Error actualizando cliente {numero}: {e}")
         return False, str(e)
+
+
+def authenticate_user(username, password):
+    try:
+        with get_connection() as con:
+            cur = con.cursor()
+            query_sql = "SELECT ID, NOMBRE_COMPLETO, ACTIVO, PERMISOS FROM USUARIOS WHERE USUARIO = ? AND CLAVE = ?"
+            cur.execute(query_sql, (username, password))
+            row = cur.fetchone()
+            if row:
+                user_id, nombre, activo, permisos = row
+                if str(activo).strip() == '1':
+                    permisos_str = ""
+                    if permisos:
+                        # permisos is a BLOB, might need conversion
+                        if isinstance(permisos, bytes):
+                            permisos_str = permisos.decode('utf-8', errors='ignore')
+                        else:
+                            permisos_str = str(permisos)
+                    
+                    is_admin = permisos_str.strip() == ""
+                    return True, {
+                        "id": user_id, 
+                        "nombre": nombre.strip() if nombre else "Usuario",
+                        "is_admin": is_admin,
+                        "permisos": permisos_str
+                    }
+                else:
+                    return False, "Usuario inactivo"
+            return False, "Credenciales incorrectas"
+    except Exception as e:
+        print(f"Error en authenticate_user: {e}")
+        return False, str(e)
+
+def get_all_users():
+    try:
+        with get_connection() as con:
+            cur = con.cursor()
+            cur.execute("SELECT ID, NOMBRE_COMPLETO, USUARIO, CLAVE, ACTIVO, PERMISOS FROM USUARIOS ORDER BY ID")
+            rows = cur.fetchall()
+            users = []
+            for r in rows:
+                permisos = r[5]
+                permisos_str = ""
+                if permisos:
+                    if isinstance(permisos, bytes):
+                        permisos_str = permisos.decode('utf-8', errors='ignore')
+                    else:
+                        permisos_str = str(permisos)
+                
+                users.append({
+                    "id": r[0],
+                    "nombre": r[1].strip() if r[1] else "",
+                    "usuario": r[2].strip() if r[2] else "",
+                    "clave": r[3].strip() if r[3] else "",
+                    "activo": str(r[4]).strip() == '1',
+                    "permisos": permisos_str
+                })
+            return users
+    except Exception as e:
+        print(f"Error en get_all_users: {e}")
+        return []
+
+def save_user(data):
+    try:
+        with get_connection() as con:
+            cur = con.cursor()
+            user_id = data.get('id')
+            nombre = data.get('nombre')
+            usuario = data.get('usuario')
+            clave = data.get('clave')
+            permisos = data.get('permisos', '')
+            activo = '1' if data.get('activo') else '0'
+            
+            if user_id:
+                # Update
+                cur.execute("""
+                    UPDATE USUARIOS 
+                    SET NOMBRE_COMPLETO = ?, USUARIO = ?, CLAVE = ?, PERMISOS = ?, ACTIVO = ?
+                    WHERE ID = ?
+                """, (nombre, usuario, clave, permisos, activo, user_id))
+            else:
+                # Insert
+                cur.execute("SELECT COALESCE(MAX(ID), 0) + 1 FROM USUARIOS")
+                new_id = cur.fetchone()[0]
+                cur.execute("""
+                    INSERT INTO USUARIOS (ID, NOMBRE_COMPLETO, USUARIO, CLAVE, PERMISOS, ACTIVO, CREATED_ON)
+                    VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                """, (new_id, nombre, usuario, clave, permisos, activo))
+            
+            con.commit()
+            return True, "Usuario guardado exitosamente"
+    except Exception as e:
+        print(f"Error en save_user: {e}")
+        return False, str(e)
