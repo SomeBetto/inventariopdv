@@ -42,10 +42,25 @@ call venv\Scripts\activate.bat
 pip install -r requirements.txt --quiet
 
 :: ==================================================
-:: 3. Ejecucion
+:: 3. Pruebas de Integridad y Conexión
+:: ==================================================
+echo.
+echo [INFO] Ejecutando pruebas de integridad de base de datos y API...
+python test_suite.py
+if %errorlevel% neq 0 (
+    echo.
+    echo [ERROR] Las pruebas de integridad han fallado. 
+    echo Verifique la conexion con la base de datos Firebird y los archivos del sistema.
+    pause
+    exit /b %errorlevel%
+)
+echo [OK] Pruebas superadas.
+echo.
+
+:: ==================================================
+:: 4. Ejecucion
 :: ==================================================
 
-echo.
 echo Generando codigo QR...
 python show_qr.py
 
