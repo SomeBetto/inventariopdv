@@ -1,7 +1,11 @@
 import os
+import sys
 
-# Directorio base del proyecto
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
+# Directorio base del proyecto (usar directorio del ejecutable si está congelado como exe)
+if getattr(sys, 'frozen', False):
+    BASE_DIR = os.path.dirname(sys.executable)
+else:
+    BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 
 # Configuración de Base de Datos Firebird
 DB_PATH = os.environ.get('PDV_DB_PATH', r'C:\Program Files (x86)\AbarrotesPDV\db\PDVDATA.FDB')

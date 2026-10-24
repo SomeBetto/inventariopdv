@@ -1,6 +1,7 @@
 import os
 import io
 import base64
+import sys
 import qrcode
 from flask import Flask, render_template, session, jsonify
 import config
@@ -15,7 +16,13 @@ from routes.clients import clients_bp
 from routes.events import events_bp
 from routes.util import util_bp
 
-app = Flask(__name__)
+if getattr(sys, 'frozen', False):
+    bundle_dir = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+    template_folder = os.path.join(bundle_dir, 'templates')
+    static_folder = os.path.join(bundle_dir, 'static')
+    app = Flask(__name__, template_folder=template_folder, static_folder=static_folder, root_path=bundle_dir)
+else:
+    app = Flask(__name__)
 app.secret_key = config.SECRET_KEY
 
 # Registro de Blueprints

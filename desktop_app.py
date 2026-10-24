@@ -5,11 +5,28 @@ import threading
 import urllib.request
 import subprocess
 
-# Asegurar compatibilidad cuando se ejecuta con pythonw (sin consola)
-if sys.stdout is None:
-    sys.stdout = open(os.devnull, 'w', encoding='utf-8')
-if sys.stderr is None:
-    sys.stderr = open(os.devnull, 'w', encoding='utf-8')
+if getattr(sys, 'frozen', False):
+    BUNDLE_DIR = getattr(sys, '_MEIPASS', os.path.dirname(os.path.abspath(__file__)))
+    EXE_DIR = os.path.dirname(sys.executable)
+else:
+    BUNDLE_DIR = os.path.dirname(os.path.abspath(__file__))
+    EXE_DIR = BUNDLE_DIR
+
+# Asegurar compatibilidad cuando se ejecuta con pythonw (sin consola) o como exe congelado
+if sys.stdout is None or sys.stderr is None:
+    try:
+        log_dir = os.path.join(EXE_DIR, 'logs')
+        os.makedirs(log_dir, exist_ok=True)
+        desktop_log = open(os.path.join(log_dir, 'desktop.log'), 'a', encoding='utf-8')
+        if sys.stdout is None:
+            sys.stdout = desktop_log
+        if sys.stderr is None:
+            sys.stderr = desktop_log
+    except Exception:
+        if sys.stdout is None:
+            sys.stdout = open(os.devnull, 'w', encoding='utf-8')
+        if sys.stderr is None:
+            sys.stderr = open(os.devnull, 'w', encoding='utf-8')
 
 # Configurar ID de modelo de aplicación para que Windows muestre el icono en la barra de tareas
 if sys.platform == 'win32':
@@ -22,8 +39,9 @@ if sys.platform == 'win32':
 from app import app
 import config
 
-BASE_DIR = os.path.dirname(os.path.abspath(__file__))
-ICON_PATH = os.path.join(BASE_DIR, 'logo.ico')
+ICON_PATH = os.path.join(BUNDLE_DIR, 'logo.ico')
+if not os.path.exists(ICON_PATH):
+    ICON_PATH = os.path.join(EXE_DIR, 'logo.ico')
 APP_PORT = config.APP_PORT
 SERVER_URL = f"http://127.0.0.1:{APP_PORT}/desktop"
 HEALTH_CHECK_URL = f"http://127.0.0.1:{APP_PORT}/health"
