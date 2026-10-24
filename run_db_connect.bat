@@ -58,17 +58,16 @@ echo [OK] Pruebas superadas.
 echo.
 
 :: ==================================================
-:: 4. Ejecucion
+:: 4. Ejecucion en Segundo Plano
 :: ==================================================
-
-echo Generando codigo QR...
-python show_qr.py
-
 echo.
-echo Iniciando Servidor Web...
-echo --- Accede en: http://localhost:5000
-python app.py
+echo [OK] Iniciando aplicacion de escritorio en segundo plano...
 
-echo.
-echo Servidor finalizado.
-pause
+if exist "%~dp0venv\Scripts\pythonw.exe" (
+    start "" "%~dp0venv\Scripts\pythonw.exe" "%~dp0desktop_app.py"
+) else (
+    start "" pythonw "%~dp0desktop_app.py"
+)
+
+:: Cerrar la consola para que quede solo la ventana de la aplicacion
+exit

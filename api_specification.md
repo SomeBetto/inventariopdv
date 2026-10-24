@@ -303,6 +303,13 @@ Devuelve el texto completo de esta misma especificación (`api_specification.md`
 - **Respuesta Exitosa (200 OK):**
 Texto plano/Markdown con toda la documentación oficial de los endpoints.
 
+### 6.3. Vista de Conexión de Escritorio (Desktop QR)
+Devuelve la interfaz de escritorio nativa que despliega el código QR dinámico de conexión para escanear desde el celular.
+
+- **Ruta:** `GET /desktop`
+- **Respuesta Exitosa (200 OK):**
+HTML (`templates/desktop.html`) con la imagen base64 del código QR, la IP y la URL del servidor local.
+
 ---
 
 ## 7. Módulo: Autenticación (Auth)

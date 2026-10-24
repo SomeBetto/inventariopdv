@@ -2,3 +2,4 @@ fdb
 flask
 qrcode
 pillow
+pywebview

@@ -245,6 +245,324 @@ header {
     color: var(--primary);
 }
 
+/* ===================================================
+   KPI DASHBOARD (RESUMEN EJECUTIVO RÁPIDO)
+   =================================================== */
+.kpi-dashboard {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 0.6rem;
+    padding: 0 1rem 0.6rem;
+    max-width: 1400px;
+    margin: 0 auto;
+}
+
+.kpi-card {
+    background: var(--surface);
+    backdrop-filter: blur(12px);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-md);
+    padding: 0.7rem 0.5rem;
+    text-align: center;
+    cursor: pointer;
+    transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 0.2rem;
+}
+
+.kpi-card:active {
+    transform: scale(0.95);
+}
+
+.kpi-card.active {
+    border-color: var(--primary);
+    background: rgba(139, 92, 246, 0.15);
+    box-shadow: 0 0 15px rgba(139, 92, 246, 0.2);
+}
+
+.kpi-card.kpi-zero.active {
+    border-color: var(--error);
+    background: rgba(239, 68, 68, 0.15);
+    box-shadow: 0 0 15px rgba(239, 68, 68, 0.2);
+}
+
+.kpi-card.kpi-low.active {
+    border-color: #f59e0b;
+    background: rgba(245, 158, 11, 0.15);
+    box-shadow: 0 0 15px rgba(245, 158, 11, 0.2);
+}
+
+.kpi-label {
+    font-size: 0.68rem;
+    color: var(--text-dim);
+    font-weight: 600;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    white-space: nowrap;
+}
+
+.kpi-val {
+    font-size: 1.25rem;
+    font-weight: 800;
+    color: var(--text);
+}
+
+.kpi-zero .kpi-val {
+    color: #f87171;
+}
+
+.kpi-low .kpi-val {
+    color: #fbbf24;
+}
+
+/* ===================================================
+   BOTÓN LIMPIAR BÚSQUEDA
+   =================================================== */
+.btn-clear-search {
+    background: rgba(255, 255, 255, 0.1);
+    border: none;
+    color: var(--text-dim);
+    width: 26px;
+    height: 26px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 0.85rem;
+    cursor: pointer;
+    margin-right: 0.4rem;
+    transition: all 0.2s;
+}
+
+.btn-clear-search:active {
+    transform: scale(0.9);
+    background: rgba(255, 255, 255, 0.2);
+    color: white;
+}
+
+/* ===================================================
+   SEMÁFORO DE STOCK (BADGES)
+   =================================================== */
+.stock-badge {
+    font-size: 0.68rem;
+    font-weight: 800;
+    text-transform: uppercase;
+    padding: 0.28rem 0.6rem;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    letter-spacing: 0.4px;
+}
+
+.stock-badge-zero {
+    background: rgba(239, 68, 68, 0.15);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.35);
+}
+
+.stock-badge-low {
+    background: rgba(245, 158, 11, 0.15);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.stock-badge-ok {
+    background: rgba(16, 185, 129, 0.15);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+/* ===================================================
+   INDICADOR VISUAL DE GUARDADO EN BD
+   =================================================== */
+.save-status {
+    font-size: 0.65rem;
+    font-weight: 700;
+    padding: 0.2rem 0.5rem;
+    border-radius: 6px;
+    display: inline-flex;
+    align-items: center;
+    gap: 4px;
+    letter-spacing: 0.3px;
+    animation: fadeIn 0.15s ease;
+}
+
+.status-saving {
+    background: rgba(245, 158, 11, 0.18);
+    color: #fbbf24;
+    border: 1px solid rgba(245, 158, 11, 0.35);
+}
+
+.saving-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: #fbbf24;
+    animation: pulse 0.8s infinite;
+    display: inline-block;
+}
+
+.status-saved {
+    background: rgba(16, 185, 129, 0.18);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.status-error {
+    background: rgba(239, 68, 68, 0.2);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.4);
+}
+
+/* ===================================================
+   CONTROL RÁPIDO DE CONTEO EN TARJETA
+   =================================================== */
+.quick-qty-control {
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    background: rgba(0, 0, 0, 0.35);
+    padding: 0.3rem 0.6rem;
+    border-radius: 100px;
+    border: 1px solid var(--border);
+}
+
+.btn-quick-qty {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    border: none;
+    font-size: 1.3rem;
+    font-weight: 700;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    transition: all 0.15s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.btn-quick-qty.btn-minus {
+    background: rgba(239, 68, 68, 0.18);
+    color: #f87171;
+    border: 1px solid rgba(239, 68, 68, 0.3);
+}
+
+.btn-quick-qty.btn-minus:active {
+    transform: scale(0.88);
+    background: rgba(239, 68, 68, 0.45);
+}
+
+.btn-quick-qty.btn-plus {
+    background: rgba(16, 185, 129, 0.2);
+    color: #34d399;
+    border: 1px solid rgba(16, 185, 129, 0.35);
+}
+
+.btn-quick-qty.btn-plus:active {
+    transform: scale(0.88);
+    background: rgba(16, 185, 129, 0.45);
+}
+
+.stock-number-btn {
+    background: none;
+    border: none;
+    color: var(--text);
+    font-size: 1.25rem;
+    font-weight: 800;
+    min-width: 48px;
+    text-align: center;
+    cursor: pointer;
+    font-family: inherit;
+    padding: 0.2rem 0.4rem;
+    border-radius: 8px;
+    transition: background 0.2s;
+}
+
+.stock-number-btn:active {
+    background: rgba(255, 255, 255, 0.1);
+}
+
+/* ===================================================
+   BOTONES DE PAQUETES / MAYOREO
+   =================================================== */
+.package-shortcuts {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.5rem;
+    margin-top: 1rem;
+}
+
+.btn-pkg {
+    background: rgba(139, 92, 246, 0.12);
+    border: 1px solid var(--primary-glow);
+    color: #c4b5fd;
+    padding: 0.6rem 0.3rem;
+    border-radius: 12px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-align: center;
+}
+
+.btn-pkg:active {
+    transform: scale(0.92);
+    background: var(--primary);
+    color: white;
+}
+
+.btn-pkg-zero {
+    background: rgba(239, 68, 68, 0.12);
+    border-color: rgba(239, 68, 68, 0.3);
+    color: #f87171;
+}
+
+.btn-pkg-zero:active {
+    background: var(--error);
+    color: white;
+}
+
+/* ===================================================
+   ESCÁNER CONTINUO
+   =================================================== */
+.toggle-continuous {
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    font-size: 0.78rem;
+    background: rgba(255, 255, 255, 0.15);
+    padding: 0.35rem 0.65rem;
+    border-radius: 20px;
+    cursor: pointer;
+    color: white;
+    font-weight: 600;
+}
+
+.toggle-continuous input {
+    accent-color: var(--primary);
+    width: 15px;
+    height: 15px;
+}
+
+.scan-feedback {
+    position: absolute;
+    bottom: 2rem;
+    left: 50%;
+    transform: translateX(-50%);
+    background: rgba(16, 185, 129, 0.95);
+    color: white;
+    padding: 0.6rem 1.4rem;
+    border-radius: 100px;
+    font-weight: 700;
+    font-size: 0.95rem;
+    box-shadow: 0 10px 25px rgba(0, 0, 0, 0.5);
+    z-index: 2050;
+    animation: fadeIn 0.2s;
+}
+
 /* Modal Overlay for Bottom Sheets */
 .modal-overlay {
     position: fixed;
@@ -484,4 +802,150 @@ header {
     accent-color: var(--primary);
     width: 16px;
     height: 16px;
+}
+
+/* ===================================================
+   DESKTOP INTERFACE & RESPONSIVE ADAPTATIONS
+   =================================================== */
+@media (min-width: 768px) {
+    body {
+        padding-bottom: 3rem;
+    }
+
+    header {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 1.5rem 2rem;
+        position: relative;
+    }
+
+    header .logo-vibe {
+        font-size: 2.2rem;
+    }
+
+    /* Desktop Navigation Bar */
+    .bottom-nav {
+        position: sticky;
+        top: 0;
+        bottom: auto;
+        z-index: 500;
+        max-width: 1400px;
+        margin: 0.5rem auto 1rem;
+        background: rgba(17, 24, 39, 0.85);
+        backdrop-filter: blur(20px);
+        border: 1px solid var(--border);
+        border-radius: var(--radius-md);
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.4);
+        padding: 0.6rem 1.2rem;
+        justify-content: center;
+        gap: 1.2rem;
+    }
+
+    .nav-item {
+        flex-direction: row;
+        gap: 0.6rem;
+        font-size: 0.95rem;
+        padding: 0.6rem 1.4rem;
+        border-radius: 12px;
+        background: rgba(255, 255, 255, 0.02);
+        border: 1px solid transparent;
+        transition: all 0.2s ease;
+    }
+
+    .nav-item:hover {
+        background: rgba(139, 92, 246, 0.12);
+        color: var(--text);
+        border-color: rgba(139, 92, 246, 0.3);
+        transform: translateY(-2px);
+    }
+
+    .nav-item.active {
+        background: rgba(139, 92, 246, 0.2);
+        border-color: var(--primary);
+        box-shadow: 0 0 15px var(--primary-glow);
+    }
+
+    .nav-icon {
+        font-size: 1.25rem;
+    }
+
+    /* Controls on Desktop */
+    .sticky-controls {
+        top: 68px;
+        max-width: 1400px;
+        margin: 0 auto;
+        border-radius: var(--radius-md);
+        display: flex;
+        align-items: center;
+        gap: 1.5rem;
+        border: 1px solid var(--border);
+    }
+
+    .search-pill {
+        flex: 1;
+        margin-bottom: 0;
+    }
+
+    .filter-grid {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+    }
+
+    .filter-item select {
+        min-width: 200px;
+        cursor: pointer;
+    }
+
+    /* Multi-column Grid for Desktop */
+    .products-grid {
+        max-width: 1400px;
+        margin: 0 auto;
+        padding: 1.5rem 0;
+        grid-template-columns: repeat(auto-fill, minmax(340px, 1fr));
+        gap: 1.5rem;
+    }
+
+    .product-card {
+        cursor: pointer;
+        transition: transform 0.2s cubic-bezier(0.16, 1, 0.3, 1), box-shadow 0.2s, border-color 0.2s;
+    }
+
+    .product-card:hover {
+        transform: translateY(-4px);
+        border-color: rgba(139, 92, 246, 0.5);
+        box-shadow: 0 14px 35px rgba(139, 92, 246, 0.18);
+        background: var(--surface-accent);
+    }
+
+    /* Floating Centered Dialog Modals for Desktop */
+    .modal-overlay {
+        align-items: center;
+        justify-content: center;
+        padding: 2rem;
+    }
+
+    .modal {
+        max-width: 560px;
+        border-radius: 24px;
+        border: 1px solid var(--border);
+        box-shadow: 0 25px 60px rgba(0, 0, 0, 0.85);
+        animation: desktopModalZoom 0.25s cubic-bezier(0.16, 1, 0.3, 1);
+        padding: 2.2rem 2rem;
+    }
+
+    .modal-pull {
+        display: none;
+    }
+}
+
+@keyframes desktopModalZoom {
+    from {
+        opacity: 0;
+        transform: scale(0.94);
+    }
+    to {
+        opacity: 1;
+        transform: scale(1);
+    }
 }

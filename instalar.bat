@@ -108,7 +108,7 @@ set "PDV_FOLDER=C:\Program Files (x86)\AbarrotesPDV"
 echo Configurando permisos para la carpeta de la Base de Datos...
 echo Ruta: "%PDV_FOLDER%"
 if exist "%PDV_FOLDER%" (
-    icacls "%PDV_FOLDER%" /grant "Everyone:(OI)(CI)F" /T
+    icacls "%PDV_FOLDER%" /grant "*S-1-1-0:(OI)(CI)F" /T
     echo Permisos asignados correctamente.
 ) else (
     echo [ADVERTENCIA] No se encontro la carpeta "%PDV_FOLDER%"
@@ -134,6 +134,7 @@ echo Set oLink = oWS.CreateShortcut(sLinkFile) >> "%VBS_SCRIPT%"
 echo oLink.TargetPath = "%TARGET_BAT%" >> "%VBS_SCRIPT%"
 echo oLink.WorkingDirectory = "%WORKING_DIR%" >> "%VBS_SCRIPT%"
 echo oLink.IconLocation = "%TARGET_ICON%" >> "%VBS_SCRIPT%"
+echo oLink.WindowStyle = 7 >> "%VBS_SCRIPT%"
 echo oLink.Save >> "%VBS_SCRIPT%"
 
 :: Ejecutar el script VBScript

@@ -2,6 +2,96 @@ let allProducts = [];
 let currentEditingCode = null;
 let html5QrCode = null;
 let currentTab = 'inventory';
+let lastScannedCode = null;
+let lastScannedTime = 0;
+let quickUpdateDebounce = {};
+
+// Feedback Háptico y Sonoro
+function playBeep() {
+    try {
+        const ctx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = ctx.createOscillator();
+        const gain = ctx.createGain();
+        osc.type = 'sine';
+        osc.frequency.setValueAtTime(880, ctx.currentTime);
+        gain.gain.setValueAtTime(0.12, ctx.currentTime);
+        gain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.12);
+        osc.connect(gain);
+        gain.connect(ctx.destination);
+        osc.start();
+        osc.stop(ctx.currentTime + 0.12);
+    } catch(e) {}
+}
+
+function triggerHaptic(type = 'success') {
+    if ('vibrate' in navigator) {
+        if (type === 'success') navigator.vibrate(40);
+        else if (type === 'double') navigator.vibrate([40, 40, 40]);
+        else if (type === 'error') navigator.vibrate([80, 50, 80]);
+    }
+}
+
+// Resumen KPI en Cabecera
+function updateKpis(products) {
+    const kpiDash = document.getElementById('kpiDashboard');
+    if (currentTab !== 'inventory') {
+        if (kpiDash) kpiDash.style.display = 'none';
+        return;
+    }
+    if (kpiDash) kpiDash.style.display = 'grid';
+    
+    const total = products.length;
+    const zero = products.filter(p => (parseFloat(p.inventario) || 0) <= 0).length;
+    const low = products.filter(p => {
+        const inv = parseFloat(p.inventario) || 0;
+        return inv > 0 && inv < 5;
+    }).length;
+    
+    const elTotal = document.getElementById('kpiTotal');
+    const elZero = document.getElementById('kpiZero');
+    const elLow = document.getElementById('kpiLow');
+    if (elTotal) elTotal.textContent = total;
+    if (elZero) elZero.textContent = zero;
+    if (elLow) elLow.textContent = low;
+}
+
+function filterByKpi(filterType) {
+    triggerHaptic('success');
+    document.querySelectorAll('.kpi-card').forEach(c => c.classList.remove('active'));
+    const selectStock = document.getElementById('filterStock');
+    
+    if (filterType === 'zero') {
+        document.getElementById('kpiCardZero')?.classList.add('active');
+        if (selectStock) selectStock.value = 'zero';
+    } else if (filterType === 'low') {
+        document.getElementById('kpiCardLow')?.classList.add('active');
+        if (selectStock) selectStock.value = 'low';
+    } else {
+        document.getElementById('kpiCardAll')?.classList.add('active');
+        if (selectStock) selectStock.value = 'all';
+    }
+    doFilter();
+}
+
+// Búsqueda Rápida y Limpieza
+function onSearchInput(input) {
+    const clearBtn = document.getElementById('clearSearchBtn');
+    if (clearBtn) {
+        clearBtn.style.display = input.value.trim().length > 0 ? 'flex' : 'none';
+    }
+}
+
+function clearSearch() {
+    triggerHaptic('success');
+    const input = document.getElementById('masterSearch');
+    if (input) {
+        input.value = '';
+        input.focus();
+    }
+    const clearBtn = document.getElementById('clearSearchBtn');
+    if (clearBtn) clearBtn.style.display = 'none';
+    multiFilter();
+}
 
 function changeTab(tab) {
     currentTab = tab;
@@ -10,6 +100,9 @@ function changeTab(tab) {
     document.getElementById('tab-catalog').classList.toggle('active', tab === 'catalog');
     document.getElementById('tab-sales').classList.toggle('active', tab === 'sales');
     document.getElementById('tab-clients').classList.toggle('active', tab === 'clients');
+
+    const kpiDash = document.getElementById('kpiDashboard');
+    if (kpiDash) kpiDash.style.display = tab === 'inventory' ? 'grid' : 'none';
 
     // Toggle specific UI options if needed
     document.getElementById('filterStock').style.display = tab === 'inventory' ? 'block' : 'none';
@@ -21,6 +114,9 @@ function changeTab(tab) {
     if(clientF) clientF.style.display = tab === 'clients' ? 'grid' : 'none';
 
     document.getElementById('masterSearch').value = '';
+    const clearBtn = document.getElementById('clearSearchBtn');
+    if (clearBtn) clearBtn.style.display = 'none';
+
     document.getElementById('productsBody').innerHTML = ''; // Limpiar temporalmente
     loadData();
 }
@@ -50,12 +146,9 @@ async function loadData() {
         if (currentTab === 'clients') endpoint = '/api/clients';
 
         const res = await fetch(endpoint);
-        if (res.status === 401) {
-            document.getElementById('loginOverlay').style.display = 'flex';
-            return;
-        }
         allProducts = await res.json();
         updateDepts(allProducts);
+        updateKpis(allProducts);
         multiFilter(); // instead of renderMobileCards so filters apply immediately
     } catch (err) {
         showToast("Error al conectar ❌", "error");
@@ -91,10 +184,31 @@ function renderMobileCards(products) {
         let statsHtml = '';
 
         if (currentTab === 'inventory') {
+            const stockVal = parseFloat(p.inventario) || 0;
+            let badgeClass = 'stock-badge-ok';
+            let badgeText = `EN STOCK (${stockVal})`;
+            if (stockVal <= 0) {
+                badgeClass = 'stock-badge-zero';
+                badgeText = 'AGOTADO';
+            } else if (stockVal < 5) {
+                badgeClass = 'stock-badge-low';
+                badgeText = `STOCK BAJO (${stockVal})`;
+            }
+
             statsHtml = `
-                <div class="stat-group">
-                    <div class="label">Stock Actual</div>
-                    <div class="val stock">${p.inventario}</div>
+                <div class="stat-group" style="width: 100%; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <div class="label">Stock Actual</div>
+                        <div style="display: flex; align-items: center; gap: 6px; margin-top: 4px; flex-wrap: wrap;">
+                            <span id="stock-badge-${p.codigo}" class="stock-badge ${badgeClass}">${badgeText}</span>
+                            <span id="save-status-${p.codigo}" class="save-status" style="display: none;"></span>
+                        </div>
+                    </div>
+                    <div class="quick-qty-control" onclick="event.stopPropagation()">
+                        <button type="button" class="btn-quick-qty btn-minus" onclick="quickAdjust('${p.codigo}', -1, event)" title="Restar 1">−</button>
+                        <button type="button" class="stock-number-btn" id="stock-num-${p.codigo}" onclick="openModal('${p.codigo}', '${safeDesc}', ${p.inventario})" title="Tocar para editar">${stockVal}</button>
+                        <button type="button" class="btn-quick-qty btn-plus" onclick="quickAdjust('${p.codigo}', 1, event)" title="Sumar 1">+</button>
+                    </div>
                 </div>
             `;
             card.onclick = () => openModal(p.codigo, safeDesc, p.inventario);
@@ -114,7 +228,7 @@ function renderMobileCards(products) {
                 </div>
             `;
             card.onclick = () => openPriceModal(p.codigo, safeDesc, p.precio, p.p_costo);
-                } else if (currentTab === 'clients') {
+        } else if (currentTab === 'clients') {
             statsHtml = `
                 <div class="stat-group">
                     <div class="label">Teléfono</div>
@@ -139,8 +253,8 @@ function renderMobileCards(products) {
         card.innerHTML = `
             <div class="card-glow"></div>
             <div class="card-header">
-                <span class="tag-dept">${p.departamento || 'Cliente'}</span>
-                <div class="card-id">${p.codigo || p.numero}</div>
+                <span class="tag-dept">${p.departamento || 'General'}</span>
+                <div class="card-id">ID: ${p.codigo || p.numero}</div>
             </div>
             <div class="card-name">${p.descripcion || p.nombre}</div>
             <div class="card-stats">
@@ -260,7 +374,7 @@ async function doFilter() {
         let matchStock = true;
         if (currentTab === 'inventory') {
             if (stock === 'zero') matchStock = p.inventario <= 0;
-            if (stock === 'low') matchStock = p.inventario > 0 && p.inventario < 10;
+            if (stock === 'low') matchStock = p.inventario > 0 && p.inventario < 5;
         }
 
         if (search.length === 0) {
@@ -307,7 +421,7 @@ function multiFilter(event) {
     }, 400);
 }
 
-// Scanner Logic
+// Scanner Logic con Modo Continuo
 document.getElementById('startScanner').onclick = async () => {
     if (!window.isSecureContext && location.hostname !== "localhost" && location.hostname !== "127.0.0.1") {
         showToast("Error: La cámara requiere conexión segura (HTTPS) en celulares. 🔒", "error");
@@ -320,10 +434,41 @@ document.getElementById('startScanner').onclick = async () => {
 
     try {
         await html5QrCode.start({ facingMode: "environment" }, config, (decodedText) => {
-            document.getElementById('masterSearch').value = decodedText;
-            multiFilter();
-            stopScanning();
-            showToast("¡Código Escaneado! ✅", "success");
+            const now = Date.now();
+            if (decodedText === lastScannedCode && now - lastScannedTime < 1800) {
+                return; // Evitar lecturas duplicadas en menos de 1.8s
+            }
+            lastScannedCode = decodedText;
+            lastScannedTime = now;
+
+            playBeep();
+            triggerHaptic('double');
+
+            const isContinuous = document.getElementById('continuousScanToggle')?.checked;
+            if (isContinuous) {
+                const found = allProducts.find(p => String(p.codigo) === decodedText || String(p.codigo).includes(decodedText));
+                const fb = document.getElementById('scanFeedback');
+                if (found) {
+                    quickAdjust(found.codigo, 1);
+                    if (fb) {
+                        fb.textContent = `+1 a ${found.descripcion} (Total: ${found.inventario})`;
+                        fb.style.display = 'block';
+                        setTimeout(() => { fb.style.display = 'none'; }, 1800);
+                    }
+                } else {
+                    if (fb) {
+                        fb.textContent = `Código: ${decodedText} no encontrado`;
+                        fb.style.display = 'block';
+                        setTimeout(() => { fb.style.display = 'none'; }, 1800);
+                    }
+                }
+            } else {
+                document.getElementById('masterSearch').value = decodedText;
+                onSearchInput(document.getElementById('masterSearch'));
+                multiFilter();
+                stopScanning();
+                showToast("¡Código Escaneado! ✅", "success");
+            }
         });
     } catch (err) {
         let errorMsg = "Error al activar cámara ❌";
@@ -349,6 +494,76 @@ function stopScanning() {
     }
 }
 
+// Conteo Rápido en la Tarjeta - Guardado Inmediato en BD
+async function quickAdjust(codigo, delta, event) {
+    if (event) event.stopPropagation();
+    
+    const prod = allProducts.find(p => String(p.codigo) === String(codigo));
+    if (!prod) return;
+    
+    let currentVal = parseFloat(prod.inventario) || 0;
+    currentVal = Math.max(0, parseFloat((currentVal + delta).toFixed(2)));
+    prod.inventario = currentVal;
+    
+    // Actualizar vista local al instante
+    const elNumber = document.getElementById(`stock-num-${codigo}`);
+    if (elNumber) elNumber.textContent = currentVal;
+    
+    const elBadge = document.getElementById(`stock-badge-${codigo}`);
+    if (elBadge) {
+        elBadge.className = 'stock-badge ' + (currentVal <= 0 ? 'stock-badge-zero' : (currentVal < 5 ? 'stock-badge-low' : 'stock-badge-ok'));
+        elBadge.textContent = currentVal <= 0 ? 'AGOTADO' : (currentVal < 5 ? `STOCK BAJO (${currentVal})` : `EN STOCK (${currentVal})`);
+    }
+
+    // Indicador visual en la tarjeta: Guardando...
+    const elStatus = document.getElementById(`save-status-${codigo}`);
+    if (elStatus) {
+        elStatus.innerHTML = '<span class="saving-dot"></span> Guardando...';
+        elStatus.className = 'save-status status-saving';
+        elStatus.style.display = 'inline-flex';
+    }
+    
+    updateKpis(allProducts);
+    triggerHaptic('success');
+    playBeep();
+    
+    // Guardar inmediatamente en la Base de Datos sin retraso
+    try {
+        const res = await fetch('/api/inventory/update', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ codigo, cantidad: currentVal })
+        });
+        
+        const data = await res.json();
+        if (res.ok) {
+            if (elStatus) {
+                elStatus.innerHTML = '✓ Guardado en BD';
+                elStatus.className = 'save-status status-saved';
+                setTimeout(() => {
+                    if (elStatus.classList.contains('status-saved')) {
+                        elStatus.style.display = 'none';
+                    }
+                }, 1500);
+            }
+        } else {
+            throw new Error(data.error || "Fallo al guardar");
+        }
+    } catch(e) {
+        triggerHaptic('error');
+        if (elStatus) {
+            elStatus.innerHTML = '⚠ Error BD';
+            elStatus.className = 'save-status status-error';
+        }
+        showToast("Error al guardar en base de datos ❌", "error");
+    }
+}
+
+function setZeroQty() {
+    document.getElementById('editStock').value = 0;
+    triggerHaptic('double');
+}
+
 function openModal(id, name, stock) {
     currentEditingCode = id;
     document.getElementById('modalProdName').textContent = name;
@@ -356,6 +571,7 @@ function openModal(id, name, stock) {
     document.getElementById('editStock').value = stock;
     document.getElementById('editModal').style.display = 'flex';
     document.getElementById('editStock').focus();
+    triggerHaptic('success');
 }
 
 function closeModal() { document.getElementById('editModal').style.display = 'none'; }
@@ -363,8 +579,9 @@ function closeModal() { document.getElementById('editModal').style.display = 'no
 function changeQty(delta) {
     const input = document.getElementById('editStock');
     let val = parseFloat(input.value) || 0;
-    val += delta;
+    val = Math.max(0, parseFloat((val + delta).toFixed(2)));
     input.value = val;
+    triggerHaptic('success');
 }
 
 async function saveInventory() {
@@ -376,9 +593,18 @@ async function saveInventory() {
             body: JSON.stringify({ codigo: currentEditingCode, cantidad: val })
         });
         if (res.ok) {
+            triggerHaptic('double');
+            playBeep();
             showToast("Actualizado ✅", "success");
             closeModal();
-            loadData();
+            
+            // Actualizar objeto en memoria local y KPIs
+            const prod = allProducts.find(p => String(p.codigo) === String(currentEditingCode));
+            if (prod) {
+                prod.inventario = val;
+                updateKpis(allProducts);
+            }
+            doFilter();
         }
     } catch (err) { showToast("Error de red ❌", "error"); }
 }
@@ -578,23 +804,9 @@ async function logout() {
     }
 }
 
-async function checkAuth() {
-    try {
-        const res = await fetch('/api/auth/check');
-        const data = await res.json();
-        if (res.ok && data.logged_in) {
-            document.getElementById('loginOverlay').style.display = 'none';
-            document.getElementById('adminSettingsBtn').style.display = data.is_admin ? 'block' : 'none';
-            loadData();
-        } else {
-            document.getElementById('loginOverlay').style.display = 'flex';
-        }
-    } catch (err) {
-        document.getElementById('loginOverlay').style.display = 'flex';
-    }
-}
-
-window.onload = checkAuth;
+window.onload = () => {
+    loadData();
+};
 
 // Admin User Management Logic
 function openSettingsModal() {
@@ -727,3 +939,25 @@ async function saveAdminUser() {
         showToast("Error de conexión ❌", "error");
     }
 }
+
+// Atajos de teclado para interfaz de escritorio
+window.addEventListener('keydown', (e) => {
+    // Escape cierra cualquier modal abierto
+    if (e.key === 'Escape') {
+        closeModal();
+        closePriceModal();
+        closeDescModal();
+        closeClientModal();
+        closeSettingsModal();
+        if (typeof stopScanning === 'function') stopScanning();
+    }
+    // '/' o Ctrl+F enfoca la barra de búsqueda (si no se está escribiendo en un input)
+    if ((e.key === '/' || (e.ctrlKey && e.key.toLowerCase() === 'f')) && !['INPUT', 'TEXTAREA'].includes(document.activeElement?.tagName)) {
+        e.preventDefault();
+        const searchInput = document.getElementById('masterSearch');
+        if (searchInput) {
+            searchInput.focus();
+            searchInput.select();
+        }
+    }
+});

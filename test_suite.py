@@ -31,13 +31,10 @@ class TestInventoryAPI(unittest.TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertIn("Especificación", response.data.decode('utf-8'))
 
-    def test_protected_endpoint_unauthorized(self):
-        """Verifica que los endpoints protegidos devuelvan 401 si no hay sesión."""
-        # Intentar acceder a inventario sin login
-        response = self.app.get('/api/inventory')
-        self.assertEqual(response.status_code, 401)
-        data = json.loads(response.data)
-        self.assertIn("error", data)
+    def test_direct_inventory_access(self):
+        """Verifica que el inventario sea accesible directamente sin requerir login."""
+        response = self.app.get('/api/inventory', follow_redirects=True)
+        self.assertEqual(response.status_code, 200)
 
     def test_db_inventory_query(self):
         """Valida que se puedan realizar consultas de inventario directamente."""
@@ -49,21 +46,6 @@ class TestInventoryAPI(unittest.TestCase):
             self.assertIn('codigo', p)
             self.assertIn('descripcion', p)
             self.assertIn('inventario', p)
-
-    def test_db_users_query(self):
-        """Valida que la tabla de usuarios sea consultable (vital para el login)."""
-        users = db_manager.get_all_users()
-        self.assertIsInstance(users, list)
-        self.assertTrue(len(users) > 0, "Debe haber al menos un usuario (admin)")
-        
-    def test_login_validation(self):
-        """Prueba el proceso de login con credenciales de prueba (debe fallar con datos falsos)."""
-        response = self.app.post('/api/auth/login', 
-                                data=json.dumps({'username': 'fakeuser', 'password': 'wrongpassword'}),
-                                content_type='application/json')
-        self.assertEqual(response.status_code, 401)
-        data = json.loads(response.data)
-        self.assertEqual(data['status'], 'error')
 
 if __name__ == '__main__':
     unittest.main()

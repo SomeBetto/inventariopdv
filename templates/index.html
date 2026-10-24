@@ -4,7 +4,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Inventario PDV - Móvil</title>
+    <title>Inventario PDV - Control de Inventario y Precios</title>
     <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- Barcode Scanner Library -->
     <script src="https://unpkg.com/html5-qrcode" type="text/javascript"></script>
@@ -12,23 +12,6 @@
 </head>
 
 <body>
-    <!-- Login Overlay -->
-    <div id="loginOverlay" class="login-overlay">
-        <div class="login-box">
-            <div class="logo-vibe">Abarrote Quintero</div>
-            <p style="color: var(--text-dim); margin-bottom: 2rem;">Acceso al Sistema</p>
-            <div style="width: 100%; margin-bottom: 1rem;">
-                <input type="text" id="loginUser" class="input-vibe" placeholder="Usuario" style="text-align: left; padding: 1rem;">
-            </div>
-            <div style="width: 100%; margin-bottom: 2rem;">
-                <input type="password" id="loginPass" class="input-vibe" placeholder="Contraseña" style="text-align: left; padding: 1rem;">
-            </div>
-            <button class="btn-action btn-save" onclick="login()" style="width: 100%; font-size: 1.1rem; padding: 1rem;">Entrar al Sistema</button>
-            <div id="loginError" style="color: var(--error); margin-top: 1rem; display: none; font-size: 0.9rem;"></div>
-        </div>
-    </div>
-
-
     <header style="position: relative;">
         <!-- Settings Icon (Admin Only) -->
         <button id="adminSettingsBtn" onclick="openSettingsModal()" style="display: none; position: absolute; top: 1rem; left: 1rem; background: rgba(139, 92, 246, 0.1); color: var(--primary); border: 1px solid var(--primary-glow); padding: 0.5rem; border-radius: 12px; cursor: pointer; transition: all 0.2s; z-index: 1000;">
@@ -38,15 +21,28 @@
             </svg>
         </button>
         <div class="logo-vibe">Abarrote Quintero</div>
-        <p style="color: var(--text-dim); font-size: 0.9rem;">Control total en la palma de tu mano</p>
+        <p style="color: var(--text-dim); font-size: 0.9rem;">Sistema de Control de Inventario y Precios</p>
         <div id="dateTimeDisplay" style="position: absolute; top: 1rem; right: 1rem; text-align: right; font-size: 0.8rem; color: var(--text-dim); line-height: 1.2;">
             <div id="currentDate" style="font-weight: 500; text-transform: capitalize;"></div>
             <div id="currentTime" style="font-family: monospace; font-size: 1rem; margin-top: 2px; color: #a78bfa;"></div>
         </div>
-        <button onclick="logout()" style="position: absolute; bottom: -0.5rem; right: 1rem; background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid rgba(239, 68, 68, 0.2); padding: 0.3rem 0.6rem; border-radius: 6px; font-size: 0.7rem; font-weight: 600; cursor: pointer; display: flex; align-items: center; gap: 4px;">
-            <span style="font-size: 1rem;">×</span> Cerrar Sesión
-        </button>
     </header>
+
+    <!-- KPI Dashboard Quick Chips -->
+    <div id="kpiDashboard" class="kpi-dashboard">
+        <div class="kpi-card active" id="kpiCardAll" onclick="filterByKpi('all')">
+            <span class="kpi-label">Total Productos</span>
+            <span class="kpi-val" id="kpiTotal">0</span>
+        </div>
+        <div class="kpi-card kpi-zero" id="kpiCardZero" onclick="filterByKpi('zero')">
+            <span class="kpi-label">🔴 Agotados</span>
+            <span class="kpi-val" id="kpiZero">0</span>
+        </div>
+        <div class="kpi-card kpi-low" id="kpiCardLow" onclick="filterByKpi('low')">
+            <span class="kpi-label">🟡 Stock Bajo</span>
+            <span class="kpi-val" id="kpiLow">0</span>
+        </div>
+    </div>
 
     <div class="sticky-controls">
         <div id="searchControls" class="search-pill">
@@ -55,8 +51,9 @@
                 <circle cx="11" cy="11" r="8"></circle>
                 <line x1="21" y1="21" x2="16.65" y2="16.65"></line>
             </svg>
-            <input type="text" id="masterSearch" placeholder="Buscar por nombre o ID..." onkeyup="multiFilter(event)">
-            <button class="btn-scan" id="startScanner">
+            <input type="text" id="masterSearch" placeholder="Buscar por nombre o ID..." oninput="onSearchInput(this)" onkeyup="multiFilter(event)">
+            <button type="button" id="clearSearchBtn" class="btn-clear-search" onclick="clearSearch()" style="display: none;" title="Limpiar búsqueda">✕</button>
+            <button class="btn-scan" id="startScanner" title="Escanear con cámara">
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"
                     stroke-linecap="round" stroke-linejoin="round">
                     <path d="M3 7V5a2 2 0 0 1 2-2h2"></path>
@@ -118,11 +115,17 @@
     <!-- Scanner Overlay -->
     <div id="scannerOverlay" class="scanner-overlay">
         <div class="scanner-header">
-            <span>Escaneando Código...</span>
-            <button onclick="stopScanning()"
-                style="background: var(--error); border:none; padding: 0.5rem 1rem; border-radius: 8px; color: white; font-weight: 700;">Cerrar</button>
+            <span>📷 Escaneando Código</span>
+            <div style="display: flex; align-items: center; gap: 0.6rem;">
+                <label class="toggle-continuous" title="Escanear múltiples códigos seguidos">
+                    <input type="checkbox" id="continuousScanToggle"> Modo Continuo
+                </label>
+                <button onclick="stopScanning()"
+                    style="background: var(--error); border:none; padding: 0.4rem 0.8rem; border-radius: 8px; color: white; font-weight: 700; cursor: pointer;">Cerrar</button>
+            </div>
         </div>
         <div id="reader"></div>
+        <div id="scanFeedback" class="scan-feedback" style="display: none;"></div>
     </div>
 
     <div id="productsBody" class="products-grid"></div>
@@ -132,15 +135,24 @@
         <div class="modal">
             <div class="modal-pull"></div>
             <div class="modal-title" id="modalProdName">Ajustar Stock</div>
-            <div style="text-align: center; margin-bottom: 2rem;">
+            <div style="text-align: center; margin-bottom: 1.2rem;">
                 <span id="modalProdId" style="font-family: monospace; color: var(--text-dim);">ID</span>
             </div>
             <div class="qty-controls">
-                <button class="btn-qty" onclick="changeQty(-1)">-</button>
-                <input type="number" id="editStock" step="0.01" class="input-vibe">
+                <button class="btn-qty" onclick="changeQty(-1)">−</button>
+                <input type="number" id="editStock" step="0.01" inputmode="decimal" class="input-vibe">
                 <button class="btn-qty" onclick="changeQty(1)">+</button>
             </div>
-            <div style="display: flex; gap: 1rem;">
+
+            <!-- Botones de Paquetes y Mayoreo -->
+            <div class="package-shortcuts">
+                <button type="button" class="btn-pkg" onclick="changeQty(6)">+6 (Six)</button>
+                <button type="button" class="btn-pkg" onclick="changeQty(12)">+12 (Docena)</button>
+                <button type="button" class="btn-pkg" onclick="changeQty(24)">+24 (Caja)</button>
+                <button type="button" class="btn-pkg btn-pkg-zero" onclick="setZeroQty()">= 0 (Agotado)</button>
+            </div>
+
+            <div style="display: flex; gap: 1rem; margin-top: 1.2rem;">
                 <button class="btn-action" onclick="closeModal()"
                     style="background: rgba(255,255,255,0.05); color: white; flex: 1;">Cerrar</button>
                 <button class="btn-action btn-save" onclick="saveInventory()" style="flex: 2;">Guardar Cambios</button>

@@ -23,14 +23,36 @@ app.register_blueprint(clients_bp, url_prefix='/api/clients')
 app.register_blueprint(util_bp, url_prefix='/')
 
 @app.before_request
-def protect_api():
-    if request.path.startswith('/api/') and not request.path.startswith('/api/auth/'):
-        if 'user_id' not in session:
-            return jsonify({"error": "No autorizado"}), 401
+def ensure_session():
+    if 'user_id' not in session:
+        session['user_id'] = 1
+        session['user_name'] = 'Admin'
+        session['is_admin'] = True
 
 @app.route('/')
 def index():
     return render_template('index.html')
+
+@app.route('/desktop')
+def desktop():
+    import io
+    import base64
+    import qrcode
+    from show_qr import get_local_ip
+    
+    ip = get_local_ip()
+    url = f"http://{ip}:5000"
+    
+    qr = qrcode.QRCode(version=1, box_size=10, border=2)
+    qr.add_data(url)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="#030712", back_color="#ffffff")
+    
+    buf = io.BytesIO()
+    img.save(buf, format="PNG")
+    qr_b64 = base64.b64encode(buf.getvalue()).decode('utf-8')
+    
+    return render_template('desktop.html', server_url=url, qr_b64=qr_b64, ip=ip)
 
 if __name__ == '__main__':
     app.run(debug=True, host='0.0.0.0')

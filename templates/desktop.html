@@ -1,0 +1,299 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Inventario PDV - Conectar Celular</title>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700;800&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --primary: #8b5cf6;
+            --primary-glow: rgba(139, 92, 246, 0.4);
+            --bg: #030712;
+            --surface: rgba(31, 41, 55, 0.6);
+            --border: rgba(255, 255, 255, 0.08);
+            --text: #f3f4f6;
+            --text-dim: #9ca3af;
+            --success: #10b981;
+        }
+
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+            font-family: 'Outfit', sans-serif;
+            -webkit-user-select: none;
+            user-select: none;
+        }
+
+        body {
+            background-color: var(--bg);
+            background-image:
+                radial-gradient(circle at 50% 0%, rgba(139, 92, 246, 0.2) 0%, transparent 50%),
+                radial-gradient(circle at 50% 100%, rgba(16, 185, 129, 0.12) 0%, transparent 50%);
+            color: var(--text);
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            padding: 1.5rem;
+            text-align: center;
+            overflow-x: hidden;
+        }
+
+        .container {
+            max-width: 440px;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            animation: fadeIn 0.4s ease-out;
+        }
+
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(12px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+
+        .logo-vibe {
+            font-size: 1.8rem;
+            font-weight: 800;
+            background: linear-gradient(135deg, #a78bfa, #34d399);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            margin-bottom: 0.2rem;
+            letter-spacing: -0.5px;
+        }
+
+        .tagline {
+            color: var(--text-dim);
+            font-size: 0.9rem;
+            margin-bottom: 1.2rem;
+        }
+
+        .status-badge {
+            display: inline-flex;
+            align-items: center;
+            gap: 0.5rem;
+            background: rgba(16, 185, 129, 0.12);
+            color: var(--success);
+            border: 1px solid rgba(16, 185, 129, 0.25);
+            padding: 0.35rem 0.9rem;
+            border-radius: 100px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            margin-bottom: 1.5rem;
+        }
+
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: var(--success);
+            box-shadow: 0 0 10px var(--success);
+            animation: pulse 2s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(0.9); opacity: 0.7; }
+            50% { transform: scale(1.2); opacity: 1; }
+            100% { transform: scale(0.9); opacity: 0.7; }
+        }
+
+        .qr-card {
+            background: rgba(17, 24, 39, 0.75);
+            backdrop-filter: blur(20px);
+            border: 1px solid var(--border);
+            border-radius: 28px;
+            padding: 1.8rem;
+            width: 100%;
+            box-shadow: 0 20px 50px rgba(0, 0, 0, 0.5), 0 0 40px rgba(139, 92, 246, 0.1);
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            position: relative;
+        }
+
+        .qr-image-wrapper {
+            background: #ffffff;
+            padding: 14px;
+            border-radius: 20px;
+            box-shadow: 0 10px 25px rgba(0, 0, 0, 0.3);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            margin-bottom: 1.2rem;
+        }
+
+        .qr-image-wrapper img {
+            display: block;
+            width: 210px;
+            height: 210px;
+            image-rendering: pixelated;
+        }
+
+        .qr-instructions {
+            font-size: 0.95rem;
+            font-weight: 600;
+            color: #ffffff;
+            margin-bottom: 0.4rem;
+        }
+
+        .qr-sub {
+            font-size: 0.78rem;
+            color: var(--text-dim);
+            margin-bottom: 1.2rem;
+            line-height: 1.4;
+        }
+
+        .url-box {
+            background: rgba(0, 0, 0, 0.35);
+            border: 1px solid var(--border);
+            border-radius: 14px;
+            padding: 0.6rem 0.8rem;
+            width: 100%;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 0.5rem;
+        }
+
+        .url-text {
+            font-family: monospace;
+            font-size: 0.85rem;
+            color: #a78bfa;
+            word-break: break-all;
+            text-align: left;
+            -webkit-user-select: text;
+            user-select: text;
+        }
+
+        .btn-copy {
+            background: rgba(139, 92, 246, 0.2);
+            color: #c4b5fd;
+            border: 1px solid var(--primary-glow);
+            padding: 0.4rem 0.75rem;
+            border-radius: 8px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: all 0.2s;
+            white-space: nowrap;
+        }
+
+        .btn-copy:hover {
+            background: var(--primary);
+            color: white;
+        }
+
+        .wifi-notice {
+            margin-top: 1.2rem;
+            font-size: 0.75rem;
+            color: var(--text-dim);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .actions-footer {
+            margin-top: 1.5rem;
+            display: flex;
+            gap: 1rem;
+            width: 100%;
+            justify-content: center;
+        }
+
+        .btn-secondary {
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--border);
+            color: var(--text-dim);
+            padding: 0.5rem 1rem;
+            border-radius: 10px;
+            font-size: 0.8rem;
+            cursor: pointer;
+            text-decoration: none;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+
+        .btn-secondary:hover {
+            color: white;
+            background: rgba(255, 255, 255, 0.1);
+        }
+
+        #toast {
+            position: fixed;
+            bottom: 1.5rem;
+            background: var(--success);
+            color: white;
+            padding: 0.5rem 1rem;
+            border-radius: 100px;
+            font-size: 0.8rem;
+            font-weight: 600;
+            display: none;
+            box-shadow: 0 10px 20px rgba(0,0,0,0.4);
+            animation: toastPop 0.3s;
+        }
+
+        @keyframes toastPop {
+            from { transform: translateY(10px); opacity: 0; }
+            to { transform: translateY(0); opacity: 1; }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <div class="logo-vibe">Abarrote Quintero</div>
+        <p class="tagline">Control de Inventario y Precios</p>
+
+        <div class="status-badge">
+            <span class="status-dot"></span>
+            <span>Servidor Activo en Red Local</span>
+        </div>
+
+        <div class="qr-card">
+            <div class="qr-image-wrapper">
+                <img src="data:image/png;base64,{{ qr_b64 }}" alt="Código QR para celular">
+            </div>
+
+            <div class="qr-instructions">Escanea con tu Celular</div>
+            <p class="qr-sub">Abre la cámara de tu teléfono para acceder al sistema y gestionar el inventario al instante.</p>
+
+            <div class="url-box">
+                <span class="url-text" id="serverUrl">{{ server_url }}</span>
+                <button class="btn-copy" onclick="copyUrl()">Copiar</button>
+            </div>
+
+            <div class="wifi-notice">
+                <span>📶</span>
+                <span>Asegúrate de estar en la misma red Wi-Fi</span>
+            </div>
+        </div>
+
+        <div class="actions-footer">
+            <a href="/" target="_blank" class="btn-secondary">
+                <span>💻 Abrir en navegador de este equipo</span>
+            </a>
+            <button onclick="location.reload()" class="btn-secondary" style="border: none; background: none;">
+                <span>🔄 Recargar</span>
+            </button>
+        </div>
+    </div>
+
+    <div id="toast">Enlace copiado al portapapeles ✅</div>
+
+    <script>
+        function copyUrl() {
+            const url = document.getElementById('serverUrl').textContent;
+            navigator.clipboard.writeText(url).then(() => {
+                const toast = document.getElementById('toast');
+                toast.style.display = 'block';
+                setTimeout(() => { toast.style.display = 'none'; }, 2200);
+            });
+        }
+    </script>
+</body>
+</html>
