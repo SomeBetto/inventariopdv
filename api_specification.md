@@ -373,11 +373,64 @@ Solo accesible para usuarios con `is_admin: true`.
 
 ---
 
-## 9. Distribución Visual y Experiencia de Usuario (UI/UX)
+## 9. Módulo: Eventos y Auditoría (Events GET)
+Rutas dedicadas al seguimiento cronológico y auditoría en tiempo real de todos los movimientos de la aplicación (ajustes de existencias, variaciones de precios, descripciones de catálogo, modificaciones de clientes y eventos del sistema).
+
+### 9.1. Listar Historial de Movimientos
+Consulta los eventos registrados con soporte para filtros por categoría, búsqueda de texto y paginación.
+
+- **Ruta:** `GET /api/events`
+- **Query Parameters:**
+  - `category` *(opcional)*: Filtra por categoría (`INVENTARIO`, `PRECIOS`, `CATALOGO`, `CLIENTES`, `USUARIOS`, `SISTEMA`).
+  - `search` *(opcional)*: Búsqueda parcial por código, nombre o descripción del cambio.
+  - `limit` *(opcional, default 50, máx 200)*: Límite de registros a retornar.
+  - `offset` *(opcional, default 0)*: Desplazamiento para paginación.
+- **Respuesta Exitosa (200 OK):**
+```json
+{
+  "total": 1,
+  "limit": 50,
+  "offset": 0,
+  "events": [
+    {
+      "id": 1,
+      "timestamp": "2026-10-24 15:20:00",
+      "category": "INVENTARIO",
+      "action": "ACTUALIZAR_STOCK",
+      "entity_id": "7501055310883",
+      "entity_name": "COCA COLA 600ML",
+      "details": "Stock ajustado: 24.0 -> 30.0 (dif: +6.00)",
+      "user_name": "Admin",
+      "ip_address": "192.168.1.15"
+    }
+  ]
+}
+```
+
+### 9.2. Resumen Estadístico de Movimientos
+Retorna el total de movimientos acumulados, el conteo de hoy y el desglose de actividad por categoría.
+
+- **Ruta:** `GET /api/events/summary`
+- **Respuesta Exitosa (200 OK):**
+```json
+{
+  "total_events": 45,
+  "today_events": 12,
+  "by_category": {
+    "INVENTARIO": 8,
+    "PRECIOS": 3,
+    "CLIENTES": 1
+  }
+}
+```
+
+---
+
+## 10. Distribución Visual y Experiencia de Usuario (UI/UX)
 
 Para replicar la aplicación en otras tecnologías (React, Flutter, etc.), considere la siguiente arquitectura visual:
 
-### 9.1. Estructura de la Pantalla
+### 10.1. Estructura de la Pantalla
 1.  **Header (Encabezado)**:
     *   **Izquierda**: Icono de Configuración (solo para Admins). Abre un panel de gestión de usuarios.
     *   **Centro**: Logo y nombre del negocio.
@@ -406,7 +459,7 @@ Para replicar la aplicación en otras tecnologías (React, Flutter, etc.), consi
 
 ---
 
-## 10. Identidad Visual y Design Tokens
+## 11. Identidad Visual y Design Tokens
 
 Para asegurar la consistencia estética en cualquier implementación nueva, se deben seguir estos lineamientos gráficos:
 

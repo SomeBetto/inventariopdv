@@ -1,15 +1,17 @@
 import os
 from flask import Blueprint, request, jsonify, session, send_from_directory, current_app
 import db_manager
+import config
+from routes.common import get_client_ip
 
 util_bp = Blueprint('util', __name__)
 
 @util_bp.route('/api/auth/login', methods=['POST'])
 def login():
-    data = request.json
+    data = request.get_json(silent=True) or {}
     username = data.get('username')
     password = data.get('password')
-    
+
     success, result = db_manager.authenticate_user(username, password)
     if success:
         session['user_id'] = result['id']
@@ -17,6 +19,7 @@ def login():
         session['is_admin'] = result['is_admin']
         return jsonify({"status": "success", "user": result})
     else:
+        # En modo de acceso abierto, no bloqueamos
         return jsonify({"status": "error", "message": result}), 401
 
 @util_bp.route('/api/auth/logout', methods=['POST'])
@@ -26,27 +29,24 @@ def logout():
 
 @util_bp.route('/api/auth/check')
 def check_auth():
-    if 'user_id' in session:
-        return jsonify({
-            "logged_in": True, 
-            "user_name": session.get('user_name'),
-            "is_admin": session.get('is_admin', False)
-        })
-    return jsonify({"logged_in": False}), 401
+    # En modo acceso abierto siempre retorna sesión activa con permisos de administración
+    return jsonify({
+        "logged_in": True,
+        "user_name": session.get('user_name', config.DEFAULT_USER_NAME),
+        "is_admin": True
+    })
 
 @util_bp.route('/api/admin/users')
 def get_users():
-    if not session.get('is_admin'):
-        return jsonify({"error": "No autorizado"}), 403
     users = db_manager.get_all_users()
     return jsonify(users)
 
 @util_bp.route('/api/admin/users/save', methods=['POST'])
 def save_user():
-    if not session.get('is_admin'):
-        return jsonify({"error": "No autorizado"}), 403
-    data = request.json
-    success, message = db_manager.save_user(data)
+    data = request.get_json(silent=True) or {}
+    user = session.get('user_name', 'Directo')
+    ip = get_client_ip()
+    success, message = db_manager.save_user(data, user_name=user, ip_address=ip)
     if success:
         return jsonify({"status": "success", "message": message})
     return jsonify({"status": "error", "message": message}), 500
@@ -58,8 +58,8 @@ def health_check():
 @util_bp.route('/info')
 def api_info():
     try:
-        # Usar current_app.root_path en lugar de app.root_path
-        with open(os.path.join(current_app.root_path, 'api_specification.md'), 'r', encoding='utf-8') as f:
+        spec_path = os.path.join(current_app.root_path, 'api_specification.md')
+        with open(spec_path, 'r', encoding='utf-8') as f:
             content = f.read()
         return content, 200, {'Content-Type': 'text/plain; charset=utf-8'}
     except Exception as e:
@@ -67,5 +67,4 @@ def api_info():
 
 @util_bp.route('/favicon.ico')
 def favicon():
-    return send_from_directory(os.path.join(current_app.root_path, '.'),
-                               'logo.ico', mimetype='image/vnd.microsoft.icon')
+    return send_from_directory(current_app.root_path, 'logo.ico', mimetype='image/vnd.microsoft.icon')

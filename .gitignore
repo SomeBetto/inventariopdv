@@ -43,3 +43,5 @@ instance/
 # Project specific
 python_installer_32.exe
 *.log
+logs/
+

@@ -2,6 +2,7 @@ import unittest
 import json
 from app import app
 import db_manager
+import event_logger
 
 class TestInventoryAPI(unittest.TestCase):
 
@@ -40,12 +41,51 @@ class TestInventoryAPI(unittest.TestCase):
         """Valida que se puedan realizar consultas de inventario directamente."""
         products = db_manager.get_inventory_all()
         self.assertIsInstance(products, list, "El resultado de inventario debe ser una lista")
-        # Si hay productos, validamos la estructura del primero
         if len(products) > 0:
             p = products[0]
             self.assertIn('codigo', p)
             self.assertIn('descripcion', p)
             self.assertIn('inventario', p)
+
+    def test_event_logger_local(self):
+        """Verifica que el logger de eventos registre y recupere movimientos correctamente."""
+        ok = event_logger.log_event(
+            category='TEST',
+            action='TEST_ACTION',
+            entity_id='99999',
+            entity_name='Producto de Prueba',
+            details='Detalles de prueba unitaria',
+            user_name='Tester',
+            ip_address='127.0.0.1'
+        )
+        self.assertTrue(ok)
+        events_data = event_logger.get_events(category='TEST', limit=5)
+        self.assertGreater(events_data['total'], 0)
+        self.assertEqual(events_data['events'][0]['category'], 'TEST')
+
+    def test_api_events_endpoint(self):
+        """Verifica que el endpoint /api/events responda correctamente."""
+        response = self.app.get('/api/events')
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.data)
+        self.assertIn('events', data)
+        self.assertIn('total', data)
+
+    def test_api_events_summary(self):
+        """Verifica que el endpoint /api/events/summary responda correctamente."""
+        response = self.app.get('/api/events/summary')
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.data)
+        self.assertIn('total_events', data)
+        self.assertIn('today_events', data)
+
+    def test_open_access_auth_check(self):
+        """Verifica que /api/auth/check certifique acceso abierto sin login."""
+        response = self.app.get('/api/auth/check')
+        self.assertEqual(response.status_code, 200)
+        data = json.loads(response.data)
+        self.assertTrue(data.get('logged_in'))
+        self.assertTrue(data.get('is_admin'))
 
 if __name__ == '__main__':
     unittest.main()

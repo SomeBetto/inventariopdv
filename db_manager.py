@@ -1,16 +1,24 @@
 import ctypes
 import os
-import fdb
 import sys
+import fdb
+from datetime import datetime, timedelta
+import config
+import event_logger
 
-# --- PARCHE DE COMPATIBILIDAD (MONKEYPATCH) ---
+db_logger = event_logger.get_logger('db')
+
+# --- PARCHE DE COMPATIBILIDAD (MONKEYPATCH PARA FIREBRID) ---
 original_cdll = ctypes.CDLL
 original_windll = ctypes.WinDLL
 
 def robust_load(original_func, name, *args, **kwargs):
     lib = original_func(name, *args, **kwargs)
     if name and ('fbclient' in name.lower() or 'gds32' in name.lower()):
-        functions_to_mock = ['fb_shutdown_callback', 'fb_shutdown', 'fb_cancel_operation', 'fb_ping', 'fb_get_master_interface']
+        functions_to_mock = [
+            'fb_shutdown_callback', 'fb_shutdown', 
+            'fb_cancel_operation', 'fb_ping', 'fb_get_master_interface'
+        ]
         for func_name in functions_to_mock:
             if not hasattr(lib, func_name):
                 def dummy_func(*args): return 0
@@ -20,238 +28,290 @@ def robust_load(original_func, name, *args, **kwargs):
 
 ctypes.CDLL = lambda name, *args, **kwargs: robust_load(original_cdll, name, *args, **kwargs)
 ctypes.WinDLL = lambda name, *args, **kwargs: robust_load(original_windll, name, *args, **kwargs)
-# ----------------------------------------------
-
-DB_PATH = r'C:\Program Files (x86)\AbarrotesPDV\db\PDVDATA.FDB'
-USER = 'SYSDBA'
-PASSWORD = 'masterkey'
-FB_CLIENT_LIBRARY = r'C:\Program Files (x86)\AbarrotesPDV\fbclient.dll'
+# -------------------------------------------------------------
 
 def get_connection():
+    """Retorna una conexión activa a la base de datos Firebird configurada."""
     return fdb.connect(
-        database=DB_PATH,
-        user=USER,
-        password=PASSWORD,
-        fb_library_name=FB_CLIENT_LIBRARY
+        database=config.DB_PATH,
+        user=config.DB_USER,
+        password=config.DB_PASSWORD,
+        fb_library_name=config.FB_CLIENT_LIBRARY
     )
 
-def search_inventory(query):
+# --- Consultas Genéricas y Reutilizables de Productos ---
+
+def _query_products(filter_query=None, mode='inventory'):
+    """
+    Función unificada para consultar productos de Firebird.
+    mode puede ser: 'inventory', 'prices', o 'catalog'.
+    """
+    sql = """
+        SELECT p.CODIGO, p.DESCRIPCION, p.DINVENTARIO, p.PVENTA, p.PCOSTO, d.NOMBRE 
+        FROM PRODUCTOS p 
+        LEFT JOIN DEPARTAMENTOS d ON p.DEPT = d.ID
+    """
+    params = ()
+    if filter_query is not None and str(filter_query).strip() != "":
+        clean_q = str(filter_query).strip()
+        sql += " WHERE p.CODIGO CONTAINING ? OR p.DESCRIPCION CONTAINING ?"
+        params = (clean_q, clean_q)
+
+    sql += " ORDER BY p.DESCRIPCION"
+
     try:
         with get_connection() as con:
             cur = con.cursor()
-            query_sql = """
-                SELECT p.CODIGO, p.DESCRIPCION, p.DINVENTARIO, d.NOMBRE 
-                FROM PRODUCTOS p 
-                LEFT JOIN DEPARTAMENTOS d ON p.DEPT = d.ID 
-                WHERE p.CODIGO CONTAINING ? OR p.DESCRIPCION CONTAINING ?
-                ORDER BY p.DESCRIPCION
-            """
-            print(f"--- DEBUG search_inventory ---")
-            print(f"Parametro de busqueda: '{query}'")
-            cur.execute(query_sql, (query, query))
-            
+            cur.execute(sql, params)
             rows = cur.fetchall()
-            print(f"Resultados encontrados ({len(rows)}):")
-            for r in rows:
-                print(r)
-            print("------------------------------")
-            
-            return [{
-                'codigo': row[0].strip(),
-                'descripcion': row[1].strip(),
-                'inventario': float(row[2]) if row[2] is not None else 0.0,
-                'departamento': row[3].strip() if row[3] is not None else "Sin Depto"
-            } for row in rows]
+
+            results = []
+            for row in rows:
+                codigo = row[0].strip() if row[0] else ""
+                descripcion = row[1].strip() if row[1] else ""
+                depto = row[5].strip() if row[5] else "Sin Depto"
+
+                if mode == 'inventory':
+                    results.append({
+                        'codigo': codigo,
+                        'descripcion': descripcion,
+                        'inventario': float(row[2]) if row[2] is not None else 0.0,
+                        'departamento': depto
+                    })
+                elif mode == 'prices':
+                    results.append({
+                        'codigo': codigo,
+                        'descripcion': descripcion,
+                        'precio': float(row[3]) if row[3] is not None else 0.0,
+                        'p_costo': float(row[4]) if row[4] is not None else 0.0,
+                        'departamento': depto
+                    })
+                elif mode == 'catalog':
+                    results.append({
+                        'codigo': codigo,
+                        'descripcion': descripcion,
+                        'departamento': depto
+                    })
+            return results
     except Exception as e:
-        print(f"Error en search_inventory: {e}")
+        db_logger.error(f"Error en _query_products(mode={mode}, query={filter_query}): {e}")
         return []
+
+# --- Módulo: Inventario ---
 
 def get_inventory_all():
-    try:
-        with get_connection() as con:
-            cur = con.cursor()
-            cur.execute("""
-                SELECT p.CODIGO, p.DESCRIPCION, p.DINVENTARIO, d.NOMBRE 
-                FROM PRODUCTOS p 
-                LEFT JOIN DEPARTAMENTOS d ON p.DEPT = d.ID 
-                ORDER BY p.DESCRIPCION
-            """)
-            return [{
-                'codigo': row[0].strip(),
-                'descripcion': row[1].strip(),
-                'inventario': float(row[2]) if row[2] is not None else 0.0,
-                'departamento': row[3].strip() if row[3] is not None else "Sin Depto"
-            } for row in cur.fetchall()]
-    except Exception as e:
-        print(f"Error en get_inventory_all: {e}")
-        return []
+    return _query_products(filter_query=None, mode='inventory')
 
-def search_prices(query):
-    try:
-        with get_connection() as con:
-            cur = con.cursor()
-            query_sql = """
-                SELECT p.CODIGO, p.DESCRIPCION, p.PVENTA, p.PCOSTO, d.NOMBRE 
-                FROM PRODUCTOS p 
-                LEFT JOIN DEPARTAMENTOS d ON p.DEPT = d.ID 
-                WHERE p.CODIGO CONTAINING ? OR p.DESCRIPCION CONTAINING ?
-                ORDER BY p.DESCRIPCION
-            """
-            print(f"--- DEBUG search_prices ---")
-            print(f"Parametro de busqueda: '{query}'")
-            cur.execute(query_sql, (query, query))
-            
-            rows = cur.fetchall()
-            print(f"Resultados encontrados ({len(rows)}):")
-            for r in rows:
-                print(r)
-            print("------------------------------")
-            
-            return [{
-                'codigo': row[0].strip(),
-                'descripcion': row[1].strip(),
-                'precio': float(row[2]) if row[2] is not None else 0.0,
-                'p_costo': float(row[3]) if row[3] is not None else 0.0,
-                'departamento': row[4].strip() if row[4] is not None else "Sin Depto"
-            } for row in rows]
-    except Exception as e:
-        print(f"Error en search_prices: {e}")
-        return []
+def search_inventory(query):
+    return _query_products(filter_query=query, mode='inventory')
 
-def get_prices_all():
+def update_inventory(codigo, nueva_cantidad, user_name='Directo', ip_address=''):
     try:
-        with get_connection() as con:
-            cur = con.cursor()
-            cur.execute("""
-                SELECT p.CODIGO, p.DESCRIPCION, p.PVENTA, p.PCOSTO, d.NOMBRE 
-                FROM PRODUCTOS p 
-                LEFT JOIN DEPARTAMENTOS d ON p.DEPT = d.ID 
-                ORDER BY p.DESCRIPCION
-            """)
-            return [{
-                'codigo': row[0].strip(),
-                'descripcion': row[1].strip(),
-                'precio': float(row[2]) if row[2] is not None else 0.0,
-                'p_costo': float(row[3]) if row[3] is not None else 0.0,
-                'departamento': row[4].strip() if row[4] is not None else "Sin Depto"
-            } for row in cur.fetchall()]
-    except Exception as e:
-        print(f"Error en get_prices_all: {e}")
-        return []
+        nueva_cantidad = float(nueva_cantidad)
+    except (ValueError, TypeError):
+        return False, "La cantidad especificada no es un número válido"
 
-def update_inventory(codigo, nueva_cantidad):
     try:
         with get_connection() as con:
             cur = con.cursor()
-            
-            cur.execute("SELECT DINVENTARIO FROM PRODUCTOS WHERE CODIGO = ?", (codigo,))
+            cur.execute("SELECT DESCRIPCION, DINVENTARIO FROM PRODUCTOS WHERE CODIGO = ?", (codigo,))
             row = cur.fetchone()
             if not row:
                 return False, "Producto no encontrado"
-            
-            cantidad_actual = float(row[0]) if row[0] is not None else 0.0
-            
+
+            descripcion = row[0].strip() if row[0] else codigo
+            cantidad_actual = float(row[1]) if row[1] is not None else 0.0
+
             cur.execute("UPDATE PRODUCTOS SET DINVENTARIO = ? WHERE CODIGO = ?", (nueva_cantidad, codigo))
-            
+
+            # Registro nativo en HISTORIAL_INVENTARIO de Abarrotes PDV
             insert_history = """
                 INSERT INTO HISTORIAL_INVENTARIO (USUARIO_ID, CUANDO_FUE, TIPO, HABIA, CANTIDAD, CODIGO_PRODUCTO, CAJA_ID)
                 VALUES (1, CURRENT_TIMESTAMP, 'a', ?, ?, ?, 1)
             """
             cur.execute(insert_history, (cantidad_actual, nueva_cantidad, codigo))
-            
             con.commit()
+
+            # Auditoría en event_logger
+            event_logger.log_event(
+                category='INVENTARIO',
+                action='ACTUALIZAR_STOCK',
+                entity_id=codigo,
+                entity_name=descripcion,
+                details=f"Stock ajustado: {cantidad_actual} -> {nueva_cantidad} (dif: {nueva_cantidad - cantidad_actual:+.2f})",
+                user_name=user_name,
+                ip_address=ip_address
+            )
             return True, "Inventario actualizado exitosamente"
     except Exception as e:
-        print(f"Error actualizando inventario para {codigo}: {e}")
+        db_logger.error(f"Error actualizando inventario para {codigo}: {e}")
         return False, str(e)
 
-def update_prices(codigo, p_venta, p_costo):
+# --- Módulo: Precios ---
+
+def get_prices_all():
+    return _query_products(filter_query=None, mode='prices')
+
+def search_prices(query):
+    return _query_products(filter_query=query, mode='prices')
+
+def update_prices(codigo, p_venta, p_costo, user_name='Directo', ip_address=''):
     try:
         with get_connection() as con:
             cur = con.cursor()
-            
-            cur.execute("SELECT CODIGO FROM PRODUCTOS WHERE CODIGO = ?", (codigo,))
-            if not cur.fetchone():
+            cur.execute("SELECT DESCRIPCION, PVENTA, PCOSTO FROM PRODUCTOS WHERE CODIGO = ?", (codigo,))
+            row = cur.fetchone()
+            if not row:
                 return False, "Producto no encontrado"
-            
-            # Use safe updates to avoid issues if any parameter is None, though usually handled by validation in app.py
+
+            descripcion = row[0].strip() if row[0] else codigo
+            old_venta = float(row[1]) if row[1] is not None else 0.0
+            old_costo = float(row[2]) if row[2] is not None else 0.0
+
+            details_list = []
             if p_venta is not None and p_costo is not None:
                 cur.execute("UPDATE PRODUCTOS SET PVENTA = ?, PCOSTO = ? WHERE CODIGO = ?", (p_venta, p_costo, codigo))
+                details_list.append(f"Venta: ${old_venta:.2f} -> ${p_venta:.2f}, Costo: ${old_costo:.2f} -> ${p_costo:.2f}")
             elif p_venta is not None:
                 cur.execute("UPDATE PRODUCTOS SET PVENTA = ? WHERE CODIGO = ?", (p_venta, codigo))
+                details_list.append(f"Venta: ${old_venta:.2f} -> ${p_venta:.2f}")
             elif p_costo is not None:
                 cur.execute("UPDATE PRODUCTOS SET PCOSTO = ? WHERE CODIGO = ?", (p_costo, codigo))
+                details_list.append(f"Costo: ${old_costo:.2f} -> ${p_costo:.2f}")
 
             con.commit()
+
+            # Auditoría en event_logger
+            event_logger.log_event(
+                category='PRECIOS',
+                action='ACTUALIZAR_PRECIO',
+                entity_id=codigo,
+                entity_name=descripcion,
+                details=", ".join(details_list),
+                user_name=user_name,
+                ip_address=ip_address
+            )
             return True, "Precios actualizados exitosamente"
     except Exception as e:
-        print(f"Error actualizando precios para {codigo}: {e}")
+        db_logger.error(f"Error actualizando precios para {codigo}: {e}")
         return False, str(e)
 
-def search_catalog(query):
-    try:
-        with get_connection() as con:
-            cur = con.cursor()
-            query_sql = """
-                SELECT p.CODIGO, p.DESCRIPCION, d.NOMBRE 
-                FROM PRODUCTOS p 
-                LEFT JOIN DEPARTAMENTOS d ON p.DEPT = d.ID 
-                WHERE p.CODIGO CONTAINING ? OR p.DESCRIPCION CONTAINING ?
-                ORDER BY p.DESCRIPCION
-            """
-            cur.execute(query_sql, (query, query))
-            
-            rows = cur.fetchall()
-            return [{
-                'codigo': row[0].strip(),
-                'descripcion': row[1].strip(),
-                'departamento': row[2].strip() if row[2] is not None else "Sin Depto"
-            } for row in rows]
-    except Exception as e:
-        print(f"Error en search_catalog: {e}")
-        return []
+# --- Módulo: Catálogo ---
 
 def get_catalog_all():
-    try:
-        with get_connection() as con:
-            cur = con.cursor()
-            cur.execute("""
-                SELECT p.CODIGO, p.DESCRIPCION, d.NOMBRE 
-                FROM PRODUCTOS p 
-                LEFT JOIN DEPARTAMENTOS d ON p.DEPT = d.ID 
-                ORDER BY p.DESCRIPCION
-            """)
-            return [{
-                'codigo': row[0].strip(),
-                'descripcion': row[1].strip(),
-                'departamento': row[2].strip() if row[2] is not None else "Sin Depto"
-            } for row in cur.fetchall()]
-    except Exception as e:
-        print(f"Error en get_catalog_all: {e}")
-        return []
+    return _query_products(filter_query=None, mode='catalog')
 
-def update_description(codigo, nueva_descripcion):
+def search_catalog(query):
+    return _query_products(filter_query=query, mode='catalog')
+
+def update_description(codigo, nueva_descripcion, user_name='Directo', ip_address=''):
+    if not nueva_descripcion or not nueva_descripcion.strip():
+        return False, "La descripción no puede estar vacía"
+
+    nueva_descripcion = nueva_descripcion.strip()
     try:
         with get_connection() as con:
             cur = con.cursor()
-            
-            cur.execute("SELECT CODIGO FROM PRODUCTOS WHERE CODIGO = ?", (codigo,))
-            if not cur.fetchone():
+            cur.execute("SELECT DESCRIPCION FROM PRODUCTOS WHERE CODIGO = ?", (codigo,))
+            row = cur.fetchone()
+            if not row:
                 return False, "Producto no encontrado"
-            
-            if nueva_descripcion is not None and nueva_descripcion.strip() != "":
-                cur.execute("UPDATE PRODUCTOS SET DESCRIPCION = ? WHERE CODIGO = ?", (nueva_descripcion.strip(), codigo))
-                con.commit()
-                return True, "Descripción actualizada exitosamente"
-            else:
-                return False, "La descripción no puede estar vacía"
+
+            old_desc = row[0].strip() if row[0] else ""
+            cur.execute("UPDATE PRODUCTOS SET DESCRIPCION = ? WHERE CODIGO = ?", (nueva_descripcion, codigo))
+            con.commit()
+
+            event_logger.log_event(
+                category='CATALOGO',
+                action='ACTUALIZAR_DESCRIPCION',
+                entity_id=codigo,
+                entity_name=nueva_descripcion,
+                details=f"Descripción cambiada: '{old_desc}' -> '{nueva_descripcion}'",
+                user_name=user_name,
+                ip_address=ip_address
+            )
+            return True, "Descripción actualizada exitosamente"
     except Exception as e:
-        print(f"Error actualizando descripción para {codigo}: {e}")
+        db_logger.error(f"Error actualizando descripción para {codigo}: {e}")
         return False, str(e)
 
+# --- Módulo: Clientes ---
+
+def _query_clients(filter_query=None):
+    sql = """
+        SELECT NUMERO, NOMBRE, DIRECCION, TELEFONO, LIMITE_CREDITO, DSALDOACTUAL 
+        FROM CLIENTES
+    """
+    params = ()
+    if filter_query is not None and str(filter_query).strip() != "":
+        clean_q = str(filter_query).strip()
+        sql += " WHERE CAST(NUMERO AS VARCHAR(10)) CONTAINING ? OR NOMBRE CONTAINING ?"
+        params = (clean_q, clean_q)
+
+    sql += " ORDER BY NOMBRE"
+
+    try:
+        with get_connection() as con:
+            cur = con.cursor()
+            cur.execute(sql, params)
+            rows = cur.fetchall()
+
+            return [{
+                'numero': row[0],
+                'nombre': row[1].strip() if row[1] else '',
+                'direccion': row[2].strip() if row[2] else '',
+                'telefono': row[3].strip() if row[3] else '',
+                'limite_credito': float(row[4]) if row[4] is not None else 0.0,
+                'saldo_actual': float(row[5]) if row[5] is not None else 0.0
+            } for row in rows]
+    except Exception as e:
+        db_logger.error(f"Error consultando clientes (query={filter_query}): {e}")
+        return []
+
+def get_clients_all():
+    return _query_clients(filter_query=None)
+
+def search_clients(query):
+    return _query_clients(filter_query=query)
+
+def update_client(numero, nombre, direccion, telefono, limite_credito, user_name='Directo', ip_address=''):
+    try:
+        limite_credito = float(limite_credito) if limite_credito is not None else 0.0
+    except (ValueError, TypeError):
+        limite_credito = 0.0
+
+    try:
+        with get_connection() as con:
+            cur = con.cursor()
+            cur.execute("SELECT NUMERO, NOMBRE FROM CLIENTES WHERE NUMERO = ?", (numero,))
+            row = cur.fetchone()
+            if not row:
+                return False, "Cliente no encontrado"
+
+            cur.execute("""
+                UPDATE CLIENTES 
+                SET NOMBRE = ?, DIRECCION = ?, TELEFONO = ?, LIMITE_CREDITO = ? 
+                WHERE NUMERO = ?
+            """, (nombre, direccion, telefono, limite_credito, numero))
+            con.commit()
+
+            event_logger.log_event(
+                category='CLIENTES',
+                action='ACTUALIZAR_CLIENTE',
+                entity_id=str(numero),
+                entity_name=nombre or '',
+                details=f"Datos actualizados: Tel: {telefono or 'N/A'}, Límite: ${limite_credito:.2f}",
+                user_name=user_name,
+                ip_address=ip_address
+            )
+            return True, "Cliente actualizado exitosamente"
+    except Exception as e:
+        db_logger.error(f"Error actualizando cliente {numero}: {e}")
+        return False, str(e)
+
+# --- Módulo: Reportes de Ventas ---
+
 def get_sales_report(time_range, group_by, depto_filter=None):
-    from datetime import datetime, timedelta
-    
     now = datetime.now()
     if time_range == 'day':
         start = now.replace(hour=0, minute=0, second=0, microsecond=0)
@@ -262,12 +322,12 @@ def get_sales_report(time_range, group_by, depto_filter=None):
     elif time_range == 'month':
         start = now.replace(day=1, hour=0, minute=0, second=0, microsecond=0)
         if start.month == 12:
-            end = start.replace(year=start.year+1, month=1)
+            end = start.replace(year=start.year + 1, month=1)
         else:
-            end = start.replace(month=start.month+1)
+            end = start.replace(month=start.month + 1)
     elif time_range == 'year':
         start = now.replace(month=1, day=1, hour=0, minute=0, second=0, microsecond=0)
-        end = start.replace(year=start.year+1)
+        end = start.replace(year=start.year + 1)
     else:
         start = now.replace(hour=0, minute=0, second=0, microsecond=0)
         end = start + timedelta(days=1)
@@ -275,7 +335,7 @@ def get_sales_report(time_range, group_by, depto_filter=None):
     try:
         with get_connection() as con:
             cur = con.cursor()
-            
+
             if group_by == 'department':
                 query = """
                     SELECT 
@@ -288,24 +348,18 @@ def get_sales_report(time_range, group_by, depto_filter=None):
                     LEFT JOIN DEPARTAMENTOS d ON d.ID = p.DEPT
                     WHERE vt.ESTA_CANCELADO = 0 
                       AND vt.VENDIDO_EN >= ? AND vt.VENDIDO_EN < ?
-                """
-                params = [start, end]
-                
-                query += """
                     GROUP BY d.NOMBRE
                     ORDER BY SUM(vta.TOTAL_ARTICULO) DESC
                 """
-                
-                cur.execute(query, params)
+                cur.execute(query, [start, end])
                 rows = cur.fetchall()
-                
+
                 return [{
                     'nombre': row[0].strip() if row[0] else 'Sin Departamento',
                     'cantidad': float(row[1]) if row[1] is not None else 0.0,
                     'ingreso': float(row[2]) if row[2] is not None else 0.0
                 } for row in rows]
-                
-            else: # group by product
+            else:
                 query = """
                     SELECT 
                         vta.PRODUCTO_CODIGO,
@@ -321,19 +375,17 @@ def get_sales_report(time_range, group_by, depto_filter=None):
                       AND vt.VENDIDO_EN >= ? AND vt.VENDIDO_EN < ?
                 """
                 params = [start, end]
-                
                 if depto_filter and depto_filter.strip() != "":
                     query += " AND d.NOMBRE = ?"
                     params.append(depto_filter.strip())
-                    
+
                 query += """
                     GROUP BY vta.PRODUCTO_CODIGO, vta.PRODUCTO_NOMBRE, d.NOMBRE
                     ORDER BY SUM(vta.TOTAL_ARTICULO) DESC
                 """
-                
                 cur.execute(query, params)
                 rows = cur.fetchall()
-                
+
                 return [{
                     'codigo': row[0].strip() if row[0] else '',
                     'nombre': row[1].strip() if row[1] else 'Articulo Sin Nombre',
@@ -341,77 +393,11 @@ def get_sales_report(time_range, group_by, depto_filter=None):
                     'cantidad': float(row[3]) if row[3] is not None else 0.0,
                     'ingreso': float(row[4]) if row[4] is not None else 0.0
                 } for row in rows]
-                
     except Exception as e:
-        print(f"Error en get_sales_report: {e}")
+        db_logger.error(f"Error en get_sales_report: {e}")
         return []
 
-
-def search_clients(query):
-    try:
-        with get_connection() as con:
-            cur = con.cursor()
-            query_sql = """
-                SELECT NUMERO, NOMBRE, DIRECCION, TELEFONO, LIMITE_CREDITO, DSALDOACTUAL 
-                FROM CLIENTES 
-                WHERE CAST(NUMERO AS VARCHAR(10)) CONTAINING ? OR NOMBRE CONTAINING ?
-                ORDER BY NOMBRE
-            """
-            cur.execute(query_sql, (query, query))
-            
-            rows = cur.fetchall()
-            return [{
-                'numero': row[0],
-                'nombre': row[1].strip() if row[1] else '',
-                'direccion': row[2].strip() if row[2] else '',
-                'telefono': row[3].strip() if row[3] else '',
-                'limite_credito': float(row[4]) if row[4] is not None else 0.0,
-                'saldo_actual': float(row[5]) if row[5] is not None else 0.0
-            } for row in rows]
-    except Exception as e:
-        print(f"Error en search_clients: {e}")
-        return []
-
-def get_clients_all():
-    try:
-        with get_connection() as con:
-            cur = con.cursor()
-            cur.execute("""
-                SELECT NUMERO, NOMBRE, DIRECCION, TELEFONO, LIMITE_CREDITO, DSALDOACTUAL 
-                FROM CLIENTES 
-                ORDER BY NOMBRE
-            """)
-            return [{
-                'numero': row[0],
-                'nombre': row[1].strip() if row[1] else '',
-                'direccion': row[2].strip() if row[2] else '',
-                'telefono': row[3].strip() if row[3] else '',
-                'limite_credito': float(row[4]) if row[4] is not None else 0.0,
-                'saldo_actual': float(row[5]) if row[5] is not None else 0.0
-            } for row in cur.fetchall()]
-    except Exception as e:
-        print(f"Error en get_clients_all: {e}")
-        return []
-
-def update_client(numero, nombre, direccion, telefono, limite_credito):
-    try:
-        with get_connection() as con:
-            cur = con.cursor()
-            cur.execute("SELECT NUMERO FROM CLIENTES WHERE NUMERO = ?", (numero,))
-            if not cur.fetchone():
-                return False, "Cliente no encontrado"
-            
-            cur.execute("""
-                UPDATE CLIENTES 
-                SET NOMBRE = ?, DIRECCION = ?, TELEFONO = ?, LIMITE_CREDITO = ? 
-                WHERE NUMERO = ?
-            """, (nombre, direccion, telefono, limite_credito, numero))
-            con.commit()
-            return True, "Cliente actualizado exitosamente"
-    except Exception as e:
-        print(f"Error actualizando cliente {numero}: {e}")
-        return False, str(e)
-
+# --- Módulo: Usuarios y Permisos ---
 
 def authenticate_user(username, password):
     try:
@@ -425,12 +411,10 @@ def authenticate_user(username, password):
                 if str(activo).strip() == '1':
                     permisos_str = ""
                     if permisos:
-                        # permisos is a BLOB, might need conversion
                         if isinstance(permisos, bytes):
                             permisos_str = permisos.decode('utf-8', errors='ignore')
                         else:
                             permisos_str = str(permisos)
-                    
                     is_admin = permisos_str.strip() == ""
                     return True, {
                         "id": user_id, 
@@ -442,7 +426,7 @@ def authenticate_user(username, password):
                     return False, "Usuario inactivo"
             return False, "Credenciales incorrectas"
     except Exception as e:
-        print(f"Error en authenticate_user: {e}")
+        db_logger.error(f"Error en authenticate_user: {e}")
         return False, str(e)
 
 def get_all_users():
@@ -471,10 +455,10 @@ def get_all_users():
                 })
             return users
     except Exception as e:
-        print(f"Error en get_all_users: {e}")
+        db_logger.error(f"Error en get_all_users: {e}")
         return []
 
-def save_user(data):
+def save_user(data, user_name='Directo', ip_address=''):
     try:
         with get_connection() as con:
             cur = con.cursor()
@@ -484,25 +468,35 @@ def save_user(data):
             clave = data.get('clave')
             permisos = data.get('permisos', '')
             activo = '1' if data.get('activo') else '0'
-            
+
             if user_id:
-                # Update
                 cur.execute("""
                     UPDATE USUARIOS 
                     SET NOMBRE_COMPLETO = ?, USUARIO = ?, CLAVE = ?, PERMISOS = ?, ACTIVO = ?
                     WHERE ID = ?
                 """, (nombre, usuario, clave, permisos, activo, user_id))
+                action_text = f"Usuario actualizado: @{usuario}"
             else:
-                # Insert
                 cur.execute("SELECT COALESCE(MAX(ID), 0) + 1 FROM USUARIOS")
-                new_id = cur.fetchone()[0]
+                user_id = cur.fetchone()[0]
                 cur.execute("""
                     INSERT INTO USUARIOS (ID, NOMBRE_COMPLETO, USUARIO, CLAVE, PERMISOS, ACTIVO, CREATED_ON)
                     VALUES (?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
-                """, (new_id, nombre, usuario, clave, permisos, activo))
-            
+                """, (user_id, nombre, usuario, clave, permisos, activo))
+                action_text = f"Nuevo usuario creado: @{usuario}"
+
             con.commit()
+
+            event_logger.log_event(
+                category='USUARIOS',
+                action='GUARDAR_USUARIO',
+                entity_id=str(user_id),
+                entity_name=nombre or usuario,
+                details=action_text,
+                user_name=user_name,
+                ip_address=ip_address
+            )
             return True, "Usuario guardado exitosamente"
     except Exception as e:
-        print(f"Error en save_user: {e}")
+        db_logger.error(f"Error en save_user: {e}")
         return False, str(e)

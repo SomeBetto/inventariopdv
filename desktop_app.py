@@ -20,16 +20,17 @@ if sys.platform == 'win32':
         pass
 
 from app import app
+import config
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 ICON_PATH = os.path.join(BASE_DIR, 'logo.ico')
-APP_PORT = 5000
+APP_PORT = config.APP_PORT
 SERVER_URL = f"http://127.0.0.1:{APP_PORT}/desktop"
 HEALTH_CHECK_URL = f"http://127.0.0.1:{APP_PORT}/health"
 
 def run_flask():
     """Inicia el servidor Flask en segundo plano escuchando en 0.0.0.0 para admitir también conexiones móviles."""
-    app.run(host='0.0.0.0', port=APP_PORT, debug=False, use_reloader=False)
+    app.run(host=config.APP_HOST, port=APP_PORT, debug=False, use_reloader=False)
 
 def wait_for_server(timeout=10):
     """Espera a que el servidor Flask responda antes de abrir la ventana de escritorio."""

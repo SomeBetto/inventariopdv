@@ -95,25 +95,37 @@ function clearSearch() {
 
 function changeTab(tab) {
     currentTab = tab;
-    document.getElementById('tab-inventory').classList.toggle('active', tab === 'inventory');
-    document.getElementById('tab-prices').classList.toggle('active', tab === 'prices');
-    document.getElementById('tab-catalog').classList.toggle('active', tab === 'catalog');
-    document.getElementById('tab-sales').classList.toggle('active', tab === 'sales');
-    document.getElementById('tab-clients').classList.toggle('active', tab === 'clients');
+    document.getElementById('tab-inventory')?.classList.toggle('active', tab === 'inventory');
+    document.getElementById('tab-prices')?.classList.toggle('active', tab === 'prices');
+    document.getElementById('tab-catalog')?.classList.toggle('active', tab === 'catalog');
+    document.getElementById('tab-sales')?.classList.toggle('active', tab === 'sales');
+    document.getElementById('tab-clients')?.classList.toggle('active', tab === 'clients');
+    document.getElementById('tab-events')?.classList.toggle('active', tab === 'events');
 
     const kpiDash = document.getElementById('kpiDashboard');
     if (kpiDash) kpiDash.style.display = tab === 'inventory' ? 'grid' : 'none';
 
     // Toggle specific UI options if needed
-    document.getElementById('filterStock').style.display = tab === 'inventory' ? 'block' : 'none';
+    const filterStock = document.getElementById('filterStock');
+    if (filterStock) filterStock.style.display = tab === 'inventory' ? 'block' : 'none';
     
-    document.getElementById('searchControls').style.display = tab === 'sales' ? 'none' : 'flex';
-    document.getElementById('filterControls').style.display = (tab === 'sales' || tab === 'clients') ? 'none' : 'grid';
-    document.getElementById('salesFilters').style.display = tab === 'sales' ? 'grid' : 'none';
-    const clientF = document.getElementById('clientFilters');
-    if(clientF) clientF.style.display = tab === 'clients' ? 'grid' : 'none';
+    const searchCtrl = document.getElementById('searchControls');
+    if (searchCtrl) searchCtrl.style.display = tab === 'sales' ? 'none' : 'flex';
 
-    document.getElementById('masterSearch').value = '';
+    const filterCtrl = document.getElementById('filterControls');
+    if (filterCtrl) filterCtrl.style.display = (tab === 'sales' || tab === 'clients' || tab === 'events') ? 'none' : 'grid';
+
+    const salesF = document.getElementById('salesFilters');
+    if (salesF) salesF.style.display = tab === 'sales' ? 'grid' : 'none';
+
+    const clientF = document.getElementById('clientFilters');
+    if (clientF) clientF.style.display = tab === 'clients' ? 'grid' : 'none';
+
+    const eventsF = document.getElementById('eventsFilters');
+    if (eventsF) eventsF.style.display = tab === 'events' ? 'grid' : 'none';
+
+    const searchInput = document.getElementById('masterSearch');
+    if (searchInput) searchInput.value = '';
     const clearBtn = document.getElementById('clearSearchBtn');
     if (clearBtn) clearBtn.style.display = 'none';
 
@@ -123,6 +135,11 @@ function changeTab(tab) {
 
 async function loadData() {
     try {
+        if (currentTab === 'events') {
+            await loadEvents();
+            return;
+        }
+
         if (currentTab === 'sales') {
             const timeRange = document.getElementById('filterTime').value;
             const groupBy = document.getElementById('filterGroup').value;
@@ -347,8 +364,7 @@ async function fetchBackendSearch(searchQuery) {
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({ query: searchQuery })
         });
-        if (res.status === 401) {
-            document.getElementById('loginOverlay').style.display = 'flex';
+        if (!res.ok) {
             return [];
         }
         return await res.json();
@@ -359,6 +375,11 @@ async function fetchBackendSearch(searchQuery) {
 }
 
 async function doFilter() {
+    if (currentTab === 'events') {
+        loadEvents();
+        return;
+    }
+
     const search = document.getElementById('masterSearch').value.trim();
     const dept = document.getElementById('filterDept').value;
     const stock = document.getElementById('filterStock').value;
@@ -938,6 +959,78 @@ async function saveAdminUser() {
     } catch (err) {
         showToast("Error de conexión ❌", "error");
     }
+}
+
+// Historial de Movimientos y Eventos
+async function loadEvents(isRefresh = false) {
+    const container = document.getElementById('productsBody');
+    if (isRefresh) {
+        triggerHaptic('success');
+    }
+    const categorySelect = document.getElementById('filterEventCategory');
+    const category = categorySelect ? categorySelect.value : '';
+    const searchInput = document.getElementById('masterSearch');
+    const search = searchInput ? searchInput.value.trim() : '';
+
+    container.innerHTML = '<div style="text-align: center; color: var(--text-dim); padding: 2rem;">Cargando historial de movimientos...</div>';
+
+    try {
+        let url = `/api/events?limit=80`;
+        if (category) url += `&category=${encodeURIComponent(category)}`;
+        if (search) url += `&search=${encodeURIComponent(search)}`;
+
+        const res = await fetch(url);
+        if (!res.ok) throw new Error("Error en la respuesta del servidor");
+        const data = await res.json();
+        renderEvents(data.events || []);
+        if (isRefresh) {
+            showToast("Movimientos actualizados ✅", "success");
+        }
+    } catch (err) {
+        console.error("Error al cargar eventos:", err);
+        container.innerHTML = '<div style="text-align: center; color: var(--error); padding: 2rem;">Error al cargar el historial de movimientos ❌</div>';
+    }
+}
+
+function renderEvents(events) {
+    const container = document.getElementById('productsBody');
+    container.innerHTML = '';
+
+    if (!events || events.length === 0) {
+        container.innerHTML = `
+            <div style="text-align: center; color: var(--text-dim); padding: 3rem 1rem;">
+                <div style="font-size: 2.5rem; margin-bottom: 0.8rem;">📋</div>
+                <div style="font-weight: 600; font-size: 1.1rem; color: var(--text);">No hay movimientos registrados</div>
+                <p style="font-size: 0.85rem; margin-top: 0.4rem;">Los ajustes de stock, cambios de precios, catálogo y clientes se registrarán automáticamente.</p>
+            </div>
+        `;
+        return;
+    }
+
+    events.forEach(ev => {
+        const card = document.createElement('div');
+        card.className = 'event-card';
+
+        const catClass = `cat-${(ev.category || 'sistema').toLowerCase()}`;
+        const timeFormatted = ev.timestamp ? ev.timestamp.replace('T', ' ') : '';
+
+        card.innerHTML = `
+            <div class="event-header">
+                <span class="event-badge ${catClass}">${ev.category}</span>
+                <span class="event-time">${timeFormatted}</span>
+            </div>
+            <div class="event-title">
+                <span>${ev.entity_name || ev.action}</span>
+                ${ev.entity_id ? `<span class="event-id-tag">#${ev.entity_id}</span>` : ''}
+            </div>
+            <div class="event-details">${ev.details || ev.action}</div>
+            <div class="event-meta">
+                <span>👤 ${ev.user_name || 'Directo'}</span>
+                <span>🌐 ${ev.ip_address || 'Local'}</span>
+            </div>
+        `;
+        container.appendChild(card);
+    });
 }
 
 // Atajos de teclado para interfaz de escritorio
